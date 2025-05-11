@@ -815,7 +815,7 @@
                     createNewSessionFromListButton: document.getElementById('create-new-session-from-list-button'),
 
                     chatScreen: document.getElementById('chat-screen'),
-                    chatAreaContainer: document.getElementById('chat-area-container'),
+                    chatAreaContainer: document.getElementById('chat-area-container'), // 스크롤 컨테이너
                     chatArea: document.getElementById('chat-area'),
                     aiThinkingIndicator: document.getElementById('ai-thinking-indicator'),
                     chatForm: document.getElementById('chat-form'),
@@ -879,7 +879,11 @@
                 updateHeaderTitle(); clearError();
 
                 if (screenId === 'topic-screen' && d.topicInput) d.topicInput.focus();
-                if (screenId === 'chat-screen' && d.userAnswerInput) d.userAnswerInput.focus();
+                if (screenId === 'chat-screen' && d.userAnswerInput) {
+                     d.userAnswerInput.focus();
+                     // Ensure chat is scrolled to bottom when switching to chat screen
+                     if(d.chatAreaContainer) d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
+                }
                 if (screenId === 'settings-screen' && d.apiKeyInput) d.apiKeyInput.value = State.getState().apiKey || '';
                 if (screenId === 'session-list-screen') renderSessionList();
             }
@@ -937,22 +941,30 @@
                 }
                 
                 bubbleDiv.appendChild(messageContentDiv);
-
-                // DOM 순서: 버블 -> 액션. CSS flex-direction이 시각적 순서 결정.
                 wrapperDiv.appendChild(bubbleDiv);
                 wrapperDiv.appendChild(actionsContainer);
 
-                if (isNew && d.chatArea.firstChild) {
-                    d.chatArea.insertBefore(wrapperDiv, d.chatArea.firstChild);
-                } else {
-                    d.chatArea.appendChild(wrapperDiv);
-                }
+                // --- MODIFIED: Message appending logic ---
+                // DOM 구조상으로는 메시지가 순서대로 (아래로) 쌓이지만,
+                // #chat-area-container 의 flex-direction: column-reverse 때문에
+                // 시각적으로는 새 메시지가 맨 아래에 나타나고, 스크롤도 대부분 자동으로 맨 아래를 유지합니다.
+                d.chatArea.appendChild(wrapperDiv);
+                // --- END MODIFICATION ---
+
 
                 if (isNew) {
                     if (d.userAnswerInput) {
                         d.userAnswerInput.value = '';
                         app.UI.adjustTextareaHeight(d.userAnswerInput);
                         d.userAnswerInput.focus();
+                    }
+                    // Ensure chat area scrolls to the bottom for new messages
+                    // This is often handled by column-reverse, but explicit call can be more reliable.
+                    // For chatAreaContainer with column-reverse, its scrollHeight is the total height,
+                    // and scrollTop = chatAreaContainer.scrollHeight should scroll to the "top" which is visually the bottom.
+                    // However, simpler is to target chatArea which is normal flow inside reversed container.
+                    if (d.chatAreaContainer) {
+                        d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
                     }
                 }
             }
@@ -1115,7 +1127,6 @@
                 renderSessionList, updateHeaderTitle, showEditUI
             };
         })(window.SocratesApp);
-
 
         // === app.js (수정됨) ===
         (function(app) {
