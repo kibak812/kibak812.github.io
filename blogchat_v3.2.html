@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BlogChat</title>
+    <meta name="theme-color" content="#121212"> <!-- Dark theme color -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="소크라테스">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha512-TU4FJi5o+mg25IFJWLLChVpVSUBhYkEnYMZFqC2mCvSm3NqZSPCjc8_K3fAXgqdjzY+zV0GgTeI0hAbVnrMuA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <style>
+        :root {
+            /* === Clarity Flow - Color Palette (Dark Mode) === */
+            --bg-deep-space: #0D0D0D; --bg-main: #121212; --bg-surface: #1E1E1E;
+            --bg-surface-hover: #2A2A2A; --bg-surface-active: #333333;
+            --text-primary: #E0E0E0; --text-secondary: #BDBDBD; --text-tertiary: #757575;
+            --text-disabled: #424242;
+            --accent-blue: #0A84FF; /* Updated Apple Blue for better contrast on dark */
+            --accent-blue-hover: #0070D1; --accent-blue-rgb: 10, 132, 255;
+            --accent-cyan: #32ADE6; /* Updated Apple Cyan */
+            --accent-cyan-hover: #2E9ABE;
+            --border-default: #333333; --border-strong: #424242; --border-focused: var(--accent-blue);
+            --error: #FF453A; --error-bg: rgba(255, 69, 58, 0.15); --error-text: var(--error);
+
+            /* === Typography (Inter) === */
+            --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --fs-caption: 0.75rem; --fs-body-2: 0.875rem; --fs-body-1: 1rem; --fs-subtitle: 1.125rem;
+            --fs-title: 1.25rem; --fs-headline: 1.5rem; --fs-display: 1.875rem;
+            --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+            --lh-tight: 1.25; --lh-normal: 1.5; --lh-relaxed: 1.75;
+
+            /* === Spacing (8px grid) === */
+            --space-1: 0.25rem; --space-2: 0.5rem; --space-2_5: 0.625rem; /* 10px, 추가됨 */ --space-3: 0.75rem; --space-4: 1rem;
+            --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem;
+
+            /* === Borders & Radius === */
+            --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 20px;
+            --radius-full: 9999px; --border-width: 1px;
+
+            /* === Shadows (Subtle for Dark Theme) === */
+            --highlight-soft: 0 0 0 1px rgba(255, 255, 255, 0.05);
+            --highlight-medium: 0 0 0 1px rgba(255, 255, 255, 0.1);
+            --shadow-elevation-1: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); /* For light elements on dark if needed */
+            --shadow-elevation-2: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+
+            /* === Transitions === */
+            --transition-duration: 250ms; --transition-duration-fast: 150ms;
+            --transition-timing: cubic-bezier(0.4, 0, 0.2, 1); /* Material Design standard */
+
+            /* === App Specific === */
+            --header-height: 60px;
+            --fab-size: 56px;
+            --fab-offset: var(--space-4);
+            --bottom-input-area-height: auto; /* Dynamically set by content */
+        }
+
+        /* === Base & Reset === */
+        *, *::before, *::after {
+            box-sizing: border-box; margin: 0; padding: 0;
+            border: 0 solid var(--border-default);
+            -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+        }
+        html {
+            font-family: var(--font-sans); font-size: var(--fs-body-1); line-height: var(--lh-normal);
+            color: var(--text-primary); background-color: var(--bg-deep-space);
+        }
+        body {
+            height: 100vh; height: 100dvh; /* Dynamic viewport height */
+            overflow: hidden; display: flex; justify-content: center;
+        }
+        #app-container {
+            display: flex; flex-direction: column; width: 100%; max-width: 450px;
+            height: 100%; background-color: var(--bg-main);
+            box-shadow: 0 0 60px rgba(0,0,0,0.3); position: relative; overflow: hidden;
+        }
+
+        /* === Icons === */
+        .icon { width: var(--space-5); height: var(--space-5); stroke-width: 1.5; flex-shrink: 0; display: inline-block; vertical-align: middle;}
+        .icon-sm { width: var(--space-4); height: var(--space-4); }
+        .icon-lg { width: var(--space-6); height: var(--space-6); }
+
+        /* === Header === */
+        header {
+            display: flex; align-items: center; justify-content: space-between;
+            height: var(--header-height); padding: 0 var(--space-3); /* Reduced padding for more title space */
+            background-color: var(--bg-surface); border-bottom: var(--border-width) solid var(--border-default);
+            flex-shrink: 0; position: sticky; top: 0; z-index: 100;
+        }
+        header h1 {
+            font-size: var(--fs-body-1); /* Smaller, cleaner title */
+            font-weight: var(--fw-semibold); color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            text-align: center; flex-grow: 1; margin: 0 var(--space-2);
+        }
+        .header-actions { display: flex; align-items: center; gap: var(--space-1); }
+
+        /* === Main Content & Screens === */
+        main { flex-grow: 1; position: relative; overflow: hidden; }
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--bg-main); overflow-y: auto; -webkit-overflow-scrolling: touch;
+            opacity: 0; visibility: hidden;
+            transform: translateX(20px); /* Slide from right */
+            transition: opacity var(--transition-duration) var(--transition-timing),
+                        transform var(--transition-duration) var(--transition-timing),
+                        visibility 0s var(--transition-duration);
+            display: flex; flex-direction: column;
+        }
+        .screen.active-screen {
+            opacity: 1; visibility: visible; transform: translateX(0);
+            transition-delay: 0s; z-index: 1;
+        }
+        .screen.no-padding { padding: 0; }
+        .screen-content-wrapper { flex-grow: 1; padding: var(--space-4); }
+        .screen-content-wrapper-lg { flex-grow: 1; padding: var(--space-6) var(--space-4); }
+
+
+        /* === Typography & Layout Helpers === */
+        .text-center { text-align: center; }
+        .mb-1 { margin-bottom: var(--space-1); } .mb-2 { margin-bottom: var(--space-2); }
+        .mb-3 { margin-bottom: var(--space-3); } .mb-4 { margin-bottom: var(--space-4); }
+        .mb-6 { margin-bottom: var(--space-6); } .mb-8 { margin-bottom: var(--space-8); }
+        .mt-auto { margin-top: auto; }
+        .text-large-title { font-size: var(--fs-display); font-weight: var(--fw-bold); line-height: var(--lh-tight); color: var(--text-primary); margin-bottom: var(--space-3); }
+        .text-title-1 { font-size: var(--fs-headline); font-weight: var(--fw-bold); line-height: var(--lh-tight); color: var(--text-primary); margin-bottom: var(--space-2); }
+        .text-title-2 { font-size: var(--fs-title); font-weight: var(--fw-semibold); line-height: var(--lh-tight); color: var(--text-primary); margin-bottom: var(--space-2); }
+        .text-body { font-size: var(--fs-body-1); line-height: var(--lh-relaxed); color: var(--text-secondary); }
+        .text-caption { font-size: var(--fs-caption); line-height: var(--lh-normal); color: var(--text-tertiary); }
+
+        /* === Forms === */
+        .form-group { margin-bottom: var(--space-4); }
+        .form-label {
+            display: block; font-size: var(--fs-body-2); font-weight: var(--fw-medium);
+            color: var(--text-secondary); margin-bottom: var(--space-2);
+        }
+        input[type="text"], input[type="password"], textarea, select {
+            display: block; width: 100%; padding: var(--space-3);
+            background-color: var(--bg-surface); border: var(--border-width) solid var(--border-default);
+            border-radius: var(--radius-md); font-family: var(--font-sans);
+            font-size: var(--fs-body-1); color: var(--text-primary);
+            transition: border-color var(--transition-duration-fast) var(--transition-timing),
+                        box-shadow var(--transition-duration-fast) var(--transition-timing);
+        }
+        input[type="text"]::placeholder, input[type="password"]::placeholder, textarea::placeholder { color: var(--text-tertiary); opacity: 1; }
+        input[type="text"]:focus, input[type="password"]:focus, textarea:focus, select:focus {
+            outline: none; border-color: var(--border-focused);
+            box-shadow: 0 0 0 3px rgba(var(--accent-blue-rgb), 0.3);
+        }
+        textarea { min-height: 100px; line-height: var(--lh-relaxed); resize: vertical; }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%23757575'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right var(--space-3) center;
+            background-size: 18px; padding-right: var(--space-8);
+        }
+
+        /* === Buttons === */
+        .button {
+            display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+            padding: var(--space-3) var(--space-4); font-family: var(--font-sans);
+            font-size: var(--fs-body-1); font-weight: var(--fw-medium); border-radius: var(--radius-md);
+            cursor: pointer; text-align: center; white-space: nowrap; user-select: none;
+            transition: background-color var(--transition-duration-fast) var(--transition-timing),
+                        transform var(--transition-duration-fast) var(--transition-timing),
+                        box-shadow var(--transition-duration-fast) var(--transition-timing);
+            min-height: 44px; /* Touch target */
+            box-shadow: var(--highlight-soft);
+        }
+        .button:active:not(:disabled) { transform: scale(0.97); box-shadow: none; }
+        .button:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .button-primary { background-color: var(--accent-blue); color: white; }
+        .button-primary:hover:not(:disabled) { background-color: var(--accent-blue-hover); }
+        .button-secondary { background-color: var(--bg-surface-active); color: var(--text-primary); }
+        .button-secondary:hover:not(:disabled) { background-color: #424242; }
+        .button-accent { background-color: var(--accent-cyan); color: var(--bg-deep-space); font-weight: var(--fw-semibold); }
+        .button-accent:hover:not(:disabled) { background-color: var(--accent-cyan-hover); }
+        .button-destructive { background-color: var(--error); color: white; }
+        .button-destructive:hover:not(:disabled) { background-color: #D9362D; } /* Darker red */
+        .button-ghost { background-color: transparent; color: var(--text-secondary); box-shadow: none; }
+        .button-ghost:hover:not(:disabled) { background-color: var(--bg-surface-hover); color: var(--text-primary); }
+        .button-block { display: flex; width: 100%; }
+        .button-sm { padding: var(--space-2) var(--space-3); font-size: var(--fs-body-2); min-height: 36px; }
+        .button .icon { color: inherit; }
+
+        .icon-button {
+            padding: var(--space-2); min-width: 40px; min-height: 40px;
+            background-color: transparent; color: var(--text-secondary);
+            border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center;
+            transition: background-color var(--transition-duration-fast) var(--transition-timing), color var(--transition-duration-fast) var(--transition-timing);
+        }
+        .icon-button:hover:not(:disabled) { background-color: var(--bg-surface-hover); color: var(--text-primary); }
+        .icon-button .icon { width: var(--space-5); height: var(--space-5); }
+
+        /* === Topic Screen === */
+        #topic-screen { justify-content: center; align-items: center; text-align: center; padding: var(--space-6) var(--space-4); }
+        #topic-screen .text-large-title { margin-bottom: var(--space-2); color: var(--text-primary);}
+        #topic-screen .text-body { max-width: 320px; margin-bottom: var(--space-6); color: var(--text-tertiary); }
+        #topic-form { width: 100%; max-width: 380px; }
+        #topic-input {
+            min-height: 120px; font-size: var(--fs-body-1); text-align: left; /* Left align for easier typing */
+            padding: var(--space-3); background-color: var(--bg-surface); line-height: var(--lh-relaxed);
+        }
+        #topic-form .button-primary {
+            padding: var(--space-3) var(--space-5); font-size: var(--fs-body-1);
+            font-weight: var(--fw-semibold); margin-top: var(--space-2);
+        }
+        #view-sessions-button {
+            margin-top: var(--space-4); color: var(--text-tertiary);
+            background-color: transparent; font-weight: var(--fw-medium);
+            padding: var(--space-2) var(--space-3); text-decoration: underline;
+        }
+        #view-sessions-button:hover { color: var(--text-secondary); background-color: var(--bg-surface-hover); text-decoration: underline; }
+
+        /* === Chat Screen Styling === */
+        #chat-screen { padding: 0; background-color: var(--bg-main); }
+        #chat-area-container {
+            flex-grow: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: var(--space-4) var(--space-4) 0 var(--space-4);
+            display: flex; flex-direction: column-reverse; /* Crucial for new messages at bottom */
+        }
+        #chat-area { display: flex; flex-direction: column; gap: var(--space-1); padding-bottom: var(--space-3); }
+        
+        /* --- MODIFIED: Chat Message Wrapper and Bubble for side actions --- */
+        .chat-message-wrapper {
+            display: flex;
+            max-width: 85%; /* Buttons will be outside this, but overall content width is limited */
+            margin-bottom: var(--space-3);
+            align-items: flex-end; /* Vertically align bubble and actions to the bottom */
+            gap: var(--space-2); /* Gap between bubble and action buttons */
+        }
+        .chat-message-wrapper.user {
+            align-self: flex-end;
+            flex-direction: row-reverse; /* DOM: Bubble then Actions. Visual: Actions then Bubble */
+        }
+        .chat-message-wrapper.ai {
+            align-self: flex-start;
+            flex-direction: row; /* DOM: Bubble then Actions. Visual: Bubble then Actions */
+        }
+        
+        .chat-message-bubble {
+            padding: var(--space-3); border-radius: var(--radius-lg);
+            line-height: var(--lh-relaxed); word-wrap: break-word;
+            box-shadow: var(--shadow-elevation-1);
+            flex-grow: 1; /* Bubble takes available space */
+            min-width: 0; /* Allow bubble to shrink if content is too long */
+            display: flex; /* Ensure content inside is handled correctly if needed */
+            flex-direction: column; /* Default for content inside bubble */
+        }
+        .chat-message-wrapper.user .chat-message-bubble {
+            background-color: var(--accent-blue); color: white;
+            border-bottom-right-radius: var(--radius-sm); /* Keep tail style for now */
+        }
+        .chat-message-wrapper.ai .chat-message-bubble {
+            background-color: var(--bg-surface); color: var(--text-primary);
+            border-bottom-left-radius: var(--radius-sm); /* Keep tail style for now */
+        }
+
+        .message-content {
+            flex-grow: 1;
+        }
+        .message-content > *:first-child { margin-top: 0; } .message-content > *:last-child { margin-bottom: 0; }
+        .message-content h1, .message-content h2, .message-content h3 {
+            font-size: var(--fs-subtitle); margin: var(--space-3) 0 var(--space-2) 0; font-weight: var(--fw-semibold); color: inherit;
+        }
+        .message-content p { margin-bottom: var(--space-2); color: inherit; }
+        .message-content ul, .message-content ol { margin: var(--space-2) 0 var(--space-2) var(--space-5); padding-left: 0; color: inherit; }
+        .message-content li { margin-bottom: var(--space-1); }
+        .message-content blockquote {
+            border-left: 3px solid var(--accent-cyan); padding-left: var(--space-3); margin: var(--space-3) 0;
+            color: var(--text-secondary); font-style: italic;
+        }
+        .message-content pre {
+            background-color: var(--bg-main); padding: var(--space-3); border-radius: var(--radius-md);
+            overflow-x: auto; font-size: var(--fs-body-2); margin: var(--space-3) 0;
+            border: var(--border-width) solid var(--border-default); color: var(--text-secondary);
+        }
+        .message-content code {
+            font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background-color: var(--bg-surface-active); color: var(--text-primary);
+            padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); font-size: 0.9em;
+        }
+        .message-content pre code { background-color: transparent; padding: 0; color: inherit; }
+
+        /* --- MODIFIED: Message Actions Styling (now beside bubble) --- */
+        .message-actions {
+            display: flex;
+            flex-direction: row; /* Buttons side-by-side */
+            gap: var(--space-1);
+            opacity: 0; /* Hidden by default */
+            transition: opacity var(--transition-duration-fast) var(--transition-timing);
+            flex-shrink: 0; /* Prevent buttons from shrinking */
+            /* Removed align-self, margin-top/bottom as they are now controlled by wrapper flex properties */
+        }
+        .chat-message-wrapper:hover .message-actions { /* Show on wrapper hover */
+            opacity: 1;
+        }
+        .message-actions .icon-button {
+            width: 28px; height: 28px;
+            color: var(--text-tertiary);
+        }
+        .message-actions .icon-button:hover {
+            color: var(--text-primary);
+            background-color: rgba(255,255,255,0.05);
+        }
+        /* User-specific icon colors */
+        .chat-message-wrapper.user .message-actions .icon-button {
+            color: rgba(255,255,255,0.7);
+        }
+        .chat-message-wrapper.user .message-actions .icon-button:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+        /* --- END MODIFICATIONS for side actions --- */
+
+
+        /* Chat Input Area */
+        #chat-input-container {
+            padding: var(--space-3) var(--space-4); background-color: var(--bg-surface);
+            border-top: var(--border-width) solid var(--border-default); flex-shrink: 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+        #ai-thinking-indicator {
+            display: flex; align-items: center; justify-content: center; padding: var(--space-2) 0;
+            color: var(--text-tertiary); font-size: var(--fs-caption); font-style: italic;
+        }
+        .spinner {
+            border: 2px solid var(--bg-surface-active); border-top-color: var(--accent-blue);
+            border-radius: 50%; width: 16px; height: 16px;
+            animation: spin 0.8s linear infinite; margin-right: var(--space-2);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #chat-form { display: flex; align-items: flex-end; gap: var(--space-2); }
+        #user-answer {
+            flex-grow: 1; background-color: var(--bg-main); border-color: var(--border-strong);
+            color: var(--text-primary); min-height: 44px; max-height: 150px;
+            padding: var(--space-2_5); /* Custom padding, var defined in :root */
+            line-height: var(--lh-normal); resize: none; overflow-y: auto;
+            border-radius: var(--radius-md);
+        }
+        #submit-answer-button { /* Send button */
+            width: 44px; height: 44px; padding: 0; background-color: var(--accent-blue);
+            color: white; border-radius: var(--radius-md); flex-shrink: 0;
+            box-shadow: var(--highlight-soft); display: flex; align-items: center; justify-content: center;
+        }
+        #submit-answer-button .icon { width: var(--space-5); height: var(--space-5); }
+        #submit-answer-button:hover { background-color: var(--accent-blue-hover); }
+        #submit-answer-button:disabled { background-color: var(--bg-surface-active); opacity: 0.5; }
+        #generate-draft-button { /* Button below input */
+            margin-top: var(--space-3); font-weight: var(--fw-semibold);
+        }
+
+        #ai-persona-select-container { margin-bottom: var(--space-3); padding-top: var(--space-2); }
+        #ai-persona-select-container label { font-size: var(--fs-caption); color: var(--text-tertiary); margin-bottom: var(--space-1); }
+        #ai-persona-select {
+            background-color: var(--bg-surface); border-color: var(--border-default);
+            color: var(--text-secondary); font-size: var(--fs-body-2);
+            padding: var(--space-2) var(--space-3); min-height: 40px;
+        }
+
+        /* Error Bar (Toast-like) */
+        #error-bar {
+            background-color: var(--error-bg); color: var(--error-text); padding: var(--space-3) var(--space-4);
+            font-size: var(--fs-body-2); border-top: 2px solid var(--error);
+            display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+            position: fixed; bottom: 0; left: 0; right: 0; max-width: 450px; /* Ensure it's constrained within app container */
+            margin: 0 auto; /* Center it if max-width is applied */
+            bottom: calc(env(safe-area-inset-bottom)); /* Adjust for notch, ensure no double margin */
+            z-index: 1000; transform: translateY(120%); /* Hidden */
+            transition: transform 0.3s var(--transition-timing);
+            border-radius: var(--radius-md) var(--radius-md) 0 0; /* Rounded top corners */
+        }
+        #error-bar.visible { transform: translateY(0%); }
+        #error-message { flex-grow: 1; font-weight: var(--fw-medium); }
+        #error-bar .icon-button { color: var(--error-text); }
+        #error-bar .icon-button:hover { background-color: rgba(255, 69, 58, 0.2); }
+        #retry-button {
+            background-color: transparent; color: var(--error-text); border: 1px solid var(--error);
+            padding: var(--space-1) var(--space-3); font-size: var(--fs-caption); min-height: auto;
+        }
+        #retry-button:hover { background-color: var(--error); color: white; }
+
+        /* FAB */
+        .fab {
+            position: fixed; bottom: calc(var(--fab-offset) + env(safe-area-inset-bottom)); right: var(--fab-offset);
+            width: var(--fab-size); height: var(--fab-size); background-color: var(--accent-blue);
+            color: white; border-radius: var(--radius-full);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: center; z-index: 200;
+            transition: transform 0.2s var(--transition-timing), background-color 0.2s var(--transition-timing);
+        }
+        .fab:hover { transform: scale(1.05) translateY(-2px); background-color: var(--accent-blue-hover); }
+        .fab:active { transform: scale(0.95); }
+        .fab .icon { width: var(--space-6); height: var(--space-6); /* 24px icon for FAB */ }
+
+        /* Result & Settings Screen (basic structure, can be refined) */
+        #result-screen .screen-content-wrapper, #settings-screen .screen-content-wrapper {
+            padding: var(--space-6) var(--space-4);
+        }
+        #draft-output-container {
+            background-color: var(--bg-surface); padding: var(--space-4); border-radius: var(--radius-lg);
+            margin-bottom: var(--space-4); flex-grow: 1; overflow-y: auto;
+        }
+        #draft-output { line-height: var(--lh-relaxed); color: var(--text-secondary); }
+        #draft-output h1, #draft-output h2, #draft-output h3 { color: var(--text-primary); }
+        #draft-refinement-container { margin-top: var(--space-4); }
+
+        /* Session List Screen */
+        #session-list-screen .screen-content-wrapper { padding: var(--space-2) var(--space-4); }
+        #session-list-container { display: flex; flex-direction: column; gap: var(--space-3); }
+        .session-item {
+            background-color: var(--bg-surface); padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-lg); display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--highlight-soft); transition: background-color var(--transition-duration-fast);
+        }
+        .session-item:hover { background-color: var(--bg-surface-hover); }
+        .session-info { flex-grow: 1; cursor: pointer; }
+        .session-name { font-weight: var(--fw-semibold); color: var(--text-primary); font-size: var(--fs-body-1); margin-bottom: var(--space-1);}
+        .session-topic { font-size: var(--fs-body-2); color: var(--text-secondary); margin-bottom: var(--space-1); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; max-width: 180px;}
+        .session-date { font-size: var(--fs-caption); color: var(--text-tertiary); }
+        .session-actions { display: flex; gap: var(--space-2); }
+        .session-actions .icon-button { color: var(--text-tertiary); } /* Default for session actions */
+        .session-actions .rename-session-button:hover { color: var(--accent-cyan); }
+        .session-actions .delete-session-button:hover { color: var(--error); }
+
+        /* Textarea for editing message */
+        .edit-area {
+            width: 100%;
+            background-color: var(--bg-main);
+            border: 1px solid var(--border-strong);
+            color: var(--text-primary);
+            padding: var(--space-2);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-2);
+            font-family: var(--font-sans);
+            font-size: var(--fs-body-1);
+            line-height: var(--lh-normal);
+            resize: none; /* No manual resize */
+        }
+        .edit-controls {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-2);
+        }
+
+
+        /* Prevent FOUT */
+        html.fonts-loading body { visibility: hidden; }
+        .hidden { display: none !important; }
+
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--bg-surface-active); border-radius: var(--radius-full); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header>
+            <div class="header-actions">
+                <button id="menu-button" class="icon-button" aria-label="메뉴 열기">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </button>
+            </div>
+            <h1 id="header-title">주제 입력</h1>
+            <div class="header-actions">
+                <button id="settings-button" class="icon-button" aria-label="설정 열기">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87.074.04.147.083.22.127.324.196.72.257 1.112.077l.897-.398c.53-.234 1.14-.02 1.332.505l.845 2.306c.194.527.022 1.132-.506 1.332l-.897.398c-.392.18-.788.241-1.112.077a1.125 1.125 0 0 0-.22-.127c-.333-.184-.583-.496-.646-.87l-.213-1.281c-.09-.543-.56-.941-1.11-.941h-2.594c-.55 0-1.019.398-1.11.941l-.213 1.281c-.062.374-.312.686-.645.87-.075.04-.148.083-.221.127-.324.196-.72.257-1.112.077l-.897-.398c-.53-.234-1.14-.02-1.332.505l-.845 2.306c-.194.527-.022 1.132.506 1.332l.897.398c.392.18.788.241 1.112.077.073-.044.146-.087.22-.127.333-.184.583-.496.646-.87l.213-1.281z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+        <main>
+            <section id="topic-screen" class="screen active-screen">
+                <div class="screen-content-wrapper-lg text-center">
+                    <h2 class="text-large-title">무엇에 대해<br>글을 쓰고 싶으신가요?</h2>
+                    <p class="text-body">AI와 함께 생각을 발전시키고<br>완성도 높은 글을 만들어보세요.</p>
+                    <form id="topic-form" class="mb-6">
+                        <textarea id="topic-input" placeholder="예: 미래 교육의 방향" rows="4" required></textarea>
+                        <button type="submit" class="button button-primary button-block">새 글쓰기 시작</button>
+                    </form>
+                    <button id="view-sessions-button" class="button button-ghost">저장된 글 목록 보기</button>
+                </div>
+            </section>
+
+            <section id="session-list-screen" class="screen">
+                <div class="screen-content-wrapper">
+                    <!-- 세션 목록이 여기에 동적으로 추가됩니다. -->
+                    <div id="session-list-container"></div>
+                    <button id="create-new-session-from-list-button" class="button button-secondary button-block mt-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon icon-sm">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        <span>새 글쓰기 (주제 입력)</span>
+                    </button>
+                </div>
+            </section>
+
+            <section id="chat-screen" class="screen no-padding">
+                <div id="chat-area-container">
+                    <div id="chat-area">
+                        <!-- 메시지 예시 (JS에서 동적 생성) -->
+                    </div>
+                </div>
+                <div id="chat-input-container">
+                    <div id="ai-persona-select-container" class="form-group">
+                        <label for="ai-persona-select" class="form-label">AI 스타일:</label>
+                        <select id="ai-persona-select">
+                            <!-- 옵션은 JS에서 동적으로 채움 -->
+                        </select>
+                    </div>
+                    <div id="ai-thinking-indicator" style="display: none;">
+                        <div class="spinner"></div> AI 생각 중...
+                    </div>
+                    <form id="chat-form">
+                        <textarea id="user-answer" placeholder="답변을 입력하세요..." rows="1" required></textarea>
+                        <button type="submit" id="submit-answer-button" aria-label="답변 제출">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="icon">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                            </svg>
+                        </button>
+                    </form>
+                    <button id="generate-draft-button" class="button button-accent button-block">글 초안 생성하기</button>
+                </div>
+            </section>
+
+            <section id="result-screen" class="screen">
+                <div class="screen-content-wrapper">
+                    <h2 class="text-title-1">생성된 글 초안</h2>
+                    <div id="draft-output-container">
+                        <div id="draft-output"></div>
+                    </div>
+                    <div id="draft-refinement-container" class="form-group">
+                        <form id="draft-refinement-form">
+                            <label for="draft-refinement-input" class="form-label">초안 수정 요청:</label>
+                            <textarea id="draft-refinement-input" placeholder="예: 서론을 더 흥미롭게 바꿔줘" rows="3" required></textarea>
+                            <button type="submit" id="submit-refinement-button" class="button button-secondary button-block">수정 요청 제출</button>
+                        </form>
+                    </div>
+                    <div class="button-group">
+                        <button id="copy-draft-button" class="button button-ghost">초안(MD) 복사</button>
+                        <button id="save-md-button" class="button button-ghost">MD 저장</button>
+                        <button id="save-html-button" class="button button-ghost">HTML 저장</button>
+                        <button id="save-txt-button" class="button button-ghost">TXT 저장</button>
+                    </div>
+                    <button id="back-to-chat-button" class="button button-secondary button-block mb-2">대화로 돌아가기</button>
+                </div>
+            </section>
+
+            <section id="settings-screen" class="screen">
+                <div class="screen-content-wrapper">
+                    <h2 class="text-title-1">설정</h2>
+                    <form id="settings-form">
+                        <div class="form-group">
+                            <label for="api-key-input" class="form-label">Gemini API 키:</label>
+                            <input type="password" id="api-key-input" placeholder="API 키를 입력하세요">
+                        </div>
+                        <p class="api-key-info text-caption">API 키는 브라우저의 로컬 저장소에 저장됩니다. 공용 컴퓨터에서는 사용에 주의하세요.</p>
+                        <button type="submit" class="button button-primary button-block">API 키 저장</button>
+                    </form>
+                    <button id="back-from-settings-button" class="button button-secondary button-block mt-auto">돌아가기</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- FAB for New Chat -->
+        <button id="fab-new-chat" class="fab" aria-label="새 글쓰기 시작">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        </button>
+
+        <footer>
+            <div id="error-bar" class="hidden"> <!-- Start hidden, JS adds .visible -->
+                <span id="error-message"></span>
+                <button id="retry-button" class="button button-sm hidden">다시 시도</button>
+                <button id="close-error-button" class="icon-button" aria-label="오류 닫기">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon icon-sm">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        window.SocratesApp = window.SocratesApp || {};
+
+        // === 아이콘 SVG 문자열 ===
+        const ICONS = {
+            plus: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>',
+            paperAirplane: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="icon"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" /></svg>',
+            pencilSquare: '<svg class="icon icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"></path></svg>', // 수정된 연필 아이콘
+            arrowPath: '<svg class="icon icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>',
+            trash: '<svg class="icon icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.56 0c.34-.059.68-.111 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>',
+        };
+
+        // === Font Loading ===
+        (function() { /* FOUT 방지 JS (기존과 동일) */ })();
+
+        // === state.js ===
+        (function(app) { /* 기존과 동일 */
+            'use strict';
+            const API_KEY_STORAGE_KEY = 'geminiApiKey_v2';
+            const SESSION_LIST_KEY = 'socratesSessionsList_v2';
+            const SESSION_DATA_PREFIX = 'socratesSessionData_v2_';
+            let AI_PERSONAS = {};
+
+            let state = {
+                apiKey: localStorage.getItem(API_KEY_STORAGE_KEY) || '',
+                sessionsList: [], currentSessionId: null,
+                currentTopic: '', chatHistory: [], currentDraft: '', currentAiPersona: 'deepDive',
+                isLoading: false, currentScreen: 'topic-screen', lastActionForRetry: null,
+                headerTitle: '주제 입력'
+            };
+
+            function setAiPersonas(personas) { AI_PERSONAS = personas; if (!AI_PERSONAS[state.currentAiPersona]) state.currentAiPersona = Object.keys(AI_PERSONAS)[0] || 'deepDive';}
+            function getState() { return { ...state, availableAiPersonas: AI_PERSONAS }; }
+            function setApiKey(key) { state.apiKey = key; localStorage.setItem(API_KEY_STORAGE_KEY, key); }
+            function setLoading(isLoading) { state.isLoading = isLoading; }
+            function setCurrentScreen(screenId, title) { state.currentScreen = screenId; if(title) state.headerTitle = title; }
+            function setLastActionForRetry(action) { state.lastActionForRetry = action; }
+            function clearLastActionForRetry() { state.lastActionForRetry = null; }
+            function _generateSessionId() { return `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; }
+            function _saveSessionsList() { try { localStorage.setItem(SESSION_LIST_KEY, JSON.stringify(state.sessionsList)); } catch (e) { console.error('Error saving sessions list:', e); } }
+            function _loadSessionsList() {
+                const listStr = localStorage.getItem(SESSION_LIST_KEY);
+                if (listStr) { try { state.sessionsList = JSON.parse(listStr); } catch (e) { state.sessionsList = []; _saveSessionsList(); }}
+                else { state.sessionsList = []; }
+            }
+            function _saveCurrentSessionData() {
+                if (!state.currentSessionId) return;
+                const sessionData = { chatHistory: state.chatHistory, currentDraft: state.currentDraft, currentAiPersona: state.currentAiPersona };
+                try {
+                    localStorage.setItem(SESSION_DATA_PREFIX + state.currentSessionId, JSON.stringify(sessionData));
+                    const sessionMeta = state.sessionsList.find(s => s.id === state.currentSessionId);
+                    if (sessionMeta) { sessionMeta.modifiedAt = Date.now(); _saveSessionsList(); }
+                } catch (e) { console.error(`Error saving session data for ${state.currentSessionId}:`, e); }
+            }
+            function _loadSessionData(sessionId) {
+                const sessionDataStr = localStorage.getItem(SESSION_DATA_PREFIX + sessionId);
+                const sessionMeta = state.sessionsList.find(s => s.id === sessionId);
+                if (sessionDataStr && sessionMeta) {
+                    try {
+                        const data = JSON.parse(sessionDataStr);
+                        state.currentTopic = sessionMeta.topic;
+                        state.chatHistory = (data.chatHistory || []).filter(msg => msg && typeof msg.id === 'number' && (msg.role === 'user' || msg.role === 'model') && Array.isArray(msg.parts) && msg.parts.length > 0 && typeof msg.parts[0].text === 'string' && typeof msg.timestamp === 'number');
+                        state.currentDraft = data.currentDraft || '';
+                        state.currentAiPersona = (AI_PERSONAS[data.currentAiPersona]) ? data.currentAiPersona : Object.keys(AI_PERSONAS)[0] || 'deepDive';
+                        state.currentSessionId = sessionId; return true;
+                    } catch (e) { console.error(`Error loading session data for ${sessionId}:`, e); return false; }
+                } return false;
+            }
+            function initSessions() { _loadSessionsList(); }
+            function createNewSession(topic, name) {
+                const sessionId = _generateSessionId(); const now = Date.now();
+                const sessionName = name || `${topic.substring(0, 15)}${topic.length > 15 ? '...' : ''} - ${new Date(now).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}`;
+                const newSessionMeta = { id: sessionId, name: sessionName, topic: topic, createdAt: now, modifiedAt: now };
+                state.sessionsList.unshift(newSessionMeta); _saveSessionsList();
+                state.currentSessionId = sessionId; state.currentTopic = topic; state.chatHistory = []; state.currentDraft = '';
+                state.currentAiPersona = Object.keys(AI_PERSONAS)[0] || 'deepDive'; clearLastActionForRetry();
+                _saveCurrentSessionData(); return sessionId;
+            }
+            function loadSession(sessionId) {
+                if (_loadSessionData(sessionId)) { return true; }
+                state.currentSessionId = null; state.currentTopic = ''; state.chatHistory = []; state.currentDraft = ''; return false;
+            }
+            function deleteSession(sessionId) {
+                state.sessionsList = state.sessionsList.filter(s => s.id !== sessionId);
+                _saveSessionsList(); localStorage.removeItem(SESSION_DATA_PREFIX + sessionId);
+                if (state.currentSessionId === sessionId) { state.currentSessionId = null; state.currentTopic = ''; state.chatHistory = []; state.currentDraft = ''; }
+            }
+            function renameSession(sessionId, newName) {
+                const sessionMeta = state.sessionsList.find(s => s.id === sessionId);
+                if (sessionMeta) { sessionMeta.name = newName; sessionMeta.modifiedAt = Date.now(); _saveSessionsList(); return true; } return false;
+            }
+            function getSessionsList() { return [...state.sessionsList].sort((a, b) => b.modifiedAt - a.modifiedAt); }
+            function setCurrentTopic(topic) { state.currentTopic = topic; if (state.currentSessionId) { const meta = state.sessionsList.find(s=>s.id === state.currentSessionId); if(meta) meta.topic = topic; _saveCurrentSessionData();} }
+            function addMessageToChatHistory(role, text) {
+                const messageRole = (role === 'ai') ? 'model' : role;
+                const newMessage = { id: Date.now(), role: messageRole, parts: [{ text: text }], timestamp: Date.now() };
+                state.chatHistory.push(newMessage); _saveCurrentSessionData();
+            }
+            function replaceMessageAtIndex(index, newMessageObject) {
+                if (index > -1 && index < state.chatHistory.length) { state.chatHistory[index] = newMessageObject; _saveCurrentSessionData(); return true; } return false;
+            }
+            function setCurrentDraft(markdownDraft) { state.currentDraft = markdownDraft; _saveCurrentSessionData(); }
+            function setCurrentAiPersona(personaKey) { if (AI_PERSONAS[personaKey]) { state.currentAiPersona = personaKey; } else { state.currentAiPersona = Object.keys(AI_PERSONAS)[0] || 'deepDive'; } _saveCurrentSessionData(); }
+            function getChatHistory() { return state.chatHistory.map(msg => ({ role: msg.role, parts: msg.parts.map(part => ({ text: part.text })) }));}
+            function getFullChatHistoryWithTimestamps() { return [...state.chatHistory]; }
+            function resetForNewTopicInput() { state.currentTopic = ''; state.currentSessionId = null; clearLastActionForRetry(); state.headerTitle = '주제 입력'; }
+            function updateUserMessageText(messageId, newText) {
+                const msgIdx = state.chatHistory.findIndex(msg => msg.id === messageId && msg.role === 'user');
+                if (msgIdx > -1) { state.chatHistory[msgIdx].parts = [{text: newText}]; state.chatHistory[msgIdx].timestamp = Date.now(); _saveCurrentSessionData(); return true; } return false;
+            }
+            function deleteAiMessage(messageId) {
+                const initialLength = state.chatHistory.length;
+                state.chatHistory = state.chatHistory.filter(msg => !(msg.id === messageId && msg.role === 'model'));
+                if (state.chatHistory.length < initialLength) { _saveCurrentSessionData(); return true; } return false;
+            }
+
+            app.State = {
+                getState, setApiKey, setLoading, setCurrentScreen, setLastActionForRetry, clearLastActionForRetry, resetForNewTopicInput,
+                setAiPersonas, initSessions, createNewSession, loadSession, deleteSession, renameSession, getSessionsList,
+                setCurrentTopic, addMessageToChatHistory, getChatHistory, getFullChatHistoryWithTimestamps,
+                replaceMessageAtIndex, setCurrentDraft, setCurrentAiPersona, _saveCurrentSessionData,
+                updateUserMessageText, deleteAiMessage
+            };
+        })(window.SocratesApp);
+
+        // === utils.js ===
+        (function(app) { /* 기존과 동일 */
+            'use strict';
+            function saveToFile(content, filename, contentType) { const a = document.createElement('a'); const blob = new Blob([content],{type:contentType}); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href); }
+            function markdownToHtml(mdText) { if(typeof marked==='undefined'){ return `<p>${String(mdText || "").replace(/\n/g,"<br>")}</p>`;} marked.setOptions({breaks:true,gfm:true,pedantic:false,smartLists:true,smartypants:false}); return marked.parse(String(mdText || "")); }
+            function sanitizeHtml(dirtyHtml) { if(typeof DOMPurify==='undefined'){ return String(dirtyHtml || "").replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,'');} return DOMPurify.sanitize(String(dirtyHtml || ""),{USE_PROFILES:{html:true}}); }
+            function escapeHtml(text) { const e=document.createElement('div'); e.innerText= String(text || ""); return e.innerHTML; }
+            app.Utils = { saveToFile, markdownToHtml, sanitizeHtml, escapeHtml };
+        })(window.SocratesApp);
+
+        // === api.js ===
+        (function(app) { /* 기존과 동일 */
+            'use strict';
+            const State = app.State;
+            const GEMINI_API_MODEL_NAME = "gemini-1.5-pro-latest";
+            const GEMINI_API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_API_MODEL_NAME}:generateContent`;
+
+            const AI_PERSONAS = {
+                 'deepDive': { name: '🧐 깊이 우선 탐색', instruction: '사용자의 답변에 대해 논리적 깊이를 더하고 핵심 근거를 파고드는 질문과 피드백을 제공합니다.' },
+                 'ideaExpansion': { name: '💡 아이디어 확장', instruction: '사용자의 답변에서 새로운 가능성이나 연결점을 발견하고, 아이디어를 다양한 방향으로 확장할 수 있는 창의적인 질문과 제안을 우선적으로 제시합니다.' },
+                 'criticalChallenge': { name: '🎯 핵심 논점 공격', instruction: '사용자의 주장에서 잠재적인 논리적 오류, 숨겨진 가정, 약점, 반론 가능성을 집중적으로 찾아 정중하지만 날카로운 질문으로 검토를 유도합니다.' },
+                 'concretization': { name: '✍️ 구체화 요청', instruction: '사용자의 답변이 추상적일 경우, 구체적인 예시, 실행 방안, 명확한 정의를 요청하여 아이디어를 명확하게 발전시키도록 돕습니다.' },
+            };
+
+            async function callGeminiApi(contents, generationConfig = {}) {
+                const { apiKey } = State.getState();
+                if (!apiKey) throw new Error("API 키가 설정되지 않았습니다. 설정 화면에서 API 키를 입력해주세요.");
+                const fullUrl = `${GEMINI_API_BASE_URL}?key=${apiKey}`;
+                try {
+                    const response = await fetch(fullUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents, generationConfig }) });
+                    if (!response.ok) { const errBody=await response.json().catch(()=>({error:{message:`HTTP ${response.status}`}})); console.error('API Error:',errBody); throw new Error(`API 요청 실패: ${errBody.error.message || `HTTP ${response.status}`}`);}
+                    const data = await response.json();
+                    if (data.candidates && data.candidates.length > 0) {
+                        const cand = data.candidates[0];
+                        if (cand.finishReason === "SAFETY") {
+                            let msg = "AI 답변이 안전 가이드라인에 따라 차단되었습니다.";
+                            if (cand.safetyRatings && Array.isArray(cand.safetyRatings)) {
+                                const cats = cand.safetyRatings.filter(r=>r.probability !== "NEGLIGIBLE" && r.probability !== "LOW").map(r=>r.category.replace('HARM_CATEGORY_',''));
+                                if(cats.length > 0) msg += ` (항목: ${cats.join(', ')})`;
+                            }
+                            throw new Error(msg);
+                        }
+                        if (cand.content && cand.content.parts && cand.content.parts.length > 0 && typeof cand.content.parts[0].text === 'string') return cand.content.parts[0].text;
+                        return "";
+                    }
+                    if (data.promptFeedback && data.promptFeedback.blockReason) { throw new Error(`요청 차단: ${data.promptFeedback.blockReason}`);}
+                    return "";
+                } catch (error) { if(error.message.includes('API 키가')||error.message.includes('차단')) throw error; throw new Error(`네트워크/API 오류: ${error.message}`);}
+            }
+            function generateInitialQuestionPrompt(topic) {
+                return `당신은 사용자의 논리적 사고와 아이디어 발전을 돕는 지적인 AI 조력자입니다. 사용자는 "${topic}"라는 주제에 대해 깊이 있는 글을 쓰고 싶어합니다. 이 주제에 대한 사용자의 초기 생각을 명확히 파악하고, 앞으로 진행될 비판적 논의의 시작점이 될 수 있는 핵심적인 첫 질문을 한국어로 해주세요. 질문은 개방적이면서도 사용자가 자신의 주장을 펼치고 그 근거를 고민하게 만드는 방식으로 구성해주세요. 단순히 감상이나 느낌을 묻기보다는, 주제의 핵심 개념, 가정, 또는 주요 쟁점에 대한 사용자의 입장을 묻는 것이 좋습니다. 소크라테스식 문답법의 정신을 따르되, 사용자가 부담을 느끼지 않고 자신의 생각을 솔직하게 드러낼 수 있도록 정중하고 명료한 어조를 사용해주세요. 질문만 간결하게 제시해주세요.`;
+            }
+            function generateFollowUpQuestionPrompt() {
+                const { currentAiPersona, availableAiPersonas } = State.getState();
+                const basePrompt = `당신은 사용자의 아이디어를 발전시키고 논리적 사고를 돕는 지적인 토론 파트너이자 조력자입니다. 이전 대화 내용을 바탕으로 다음의 상호작용 원칙에 따라 응답해주세요. 당신의 목표는 사용자와 건설적인 대화를 통해 생각을 더 깊고, 넓고, 명료하게 만드는 것입니다.\n\n**상호작용 원칙:**\n\n1.  **적극적 경청 및 이해 확인:** 먼저 사용자의 답변을 주의 깊게 경청하고, 핵심 내용을 명확히 이해했음을 간략히 언급합니다. 필요한 경우, "말씀하신 내용은 A로 이해했는데, 맞을까요?"와 같이 확인 질문을 할 수 있습니다.\n\n2.  **균형 있는 피드백 (지지와 비판적 검토의 조화):**\n    * **긍정적 측면 및 잠재력 언급 (해당 시):** 사용자의 아이디어나 주장에 합리적인 부분이 있거나 발전 가능성이 보이면, "좋은 지적입니다." 또는 "흥미로운 관점이네요."와 같이 간략히 언급하여 사용자의 참여를 독려합니다. \n    * **논리적 검토 및 심층 탐구:** 이후, 해당 주장의 논리적 근거, 숨겨진 가정, 다양한 관점에서의 영향, 잠재적 보완점 등을 탐구하는 질문으로 자연스럽게 이어갑니다.\n        * "그렇게 생각하시는 구체적인 배경이나 근거가 있다면 좀 더 자세히 들어볼 수 있을까요?"\n        * "만약 A라는 다른 상황에 이 아이디어를 적용한다면 어떤 결과가 예상될까요?"\n        * "B라는 관점에서 보면 이 주장에 어떤 새로운 해석이나 고려사항이 추가될 수 있을까요?"\n\n3.  **다양한 관점 및 대안적 아이디어 제시 (탐구적 제안):** 사용자가 미처 고려하지 못했을 법한 다른 시각, 관련된 개념, 또는 대안적인 설명을 '함께 탐구해보자'는 제안의 형태로 부드럽게 제시합니다.\n    * "말씀하신 부분에 더해, 혹시 C라는 요소도 함께 고려해 보면 어떨까요? 어떤 영향을 미칠 수 있을지 궁금하네요."\n    * "이 현상을 설명하는 또 다른 가능성으로 D와 같은 관점도 있는데, 이 부분에 대해서는 어떻게 생각하시나요?"\n\n4.  **정중한 논리적 점검:** 사용자의 주장이나 근거에서 논리적 비약이나 모호한 부분이 느껴질 경우, 이를 명확히 하도록 정중하게 요청합니다.\n    * "앞서 언급하신 E와 현재 말씀하신 F 사이의 연결고리가 조금 더 명확해지면 좋을 것 같습니다. 부연 설명을 부탁드려도 될까요?"\n    * "G라는 전제가 이 주장에 중요한 역할을 하는 것 같은데, 이 전제가 항상 유효하다고 볼 수 있을지 함께 고민해 보면 어떨까요?"\n\n5.  **구체화 요구 (필요시):** 추상적인 주장에 대해서는 구체적인 예시나 설명을 요청하여 생각을 명료하게 발전시키도록 돕습니다.\n    * "말씀하신 H라는 개념을 실제 사례에 적용한다면 어떤 모습일지 그려주실 수 있나요?"\n\n**대화의 흐름:**\n* 사용자가 편안하게 자신의 생각을 펼칠 수 있도록 지지하고 격려하는 분위기를 조성합니다.\n* 질문 일변도가 아닌, 때로는 사용자의 말을 정리하거나, 관련된 정보를 짧게 제공하는 등 다양한 방식으로 상호작용합니다.\n* AI 자신의 의견을 강요하기보다는, 사용자의 사고 과정을 촉진하는 데 집중합니다.\n* 모든 응답은 한국어로 하며, 명확하고 간결하게, 그리고 정중하고 건설적인 어조를 사용합니다.\n* **답변의 가독성을 높이기 위해 필요한 경우, 간단한 마크다운(예: **강조**, *기울임*, 목록)을 사용할 수 있습니다. 하지만 과도한 서식은 피해주세요.**\n\n`;
+                const personaInstruction = availableAiPersonas[currentAiPersona]?.instruction;
+                return basePrompt + (personaInstruction ? `\n\n**[AI 스타일 지시]**: ${personaInstruction} 이 지침에 따라 다음 응답의 내용과 톤을 조정해주세요.` : '');
+            }
+            function generateDraftPrompt(topic) {
+                 return `지금까지 "${topic}"라는 주제에 대해 사용자와 나눈 심도 있는 대화 내용을 총정리하고, 이를 바탕으로 매우 높은 수준의 블로그 포스트 초고를 작성해주세요. 이 글은 해당 주제에 관심 있는 일반 대중을 대상으로 하며, AI가 작성했다는 느낌이 전혀 들지 않도록 인간 작가가 쓴 것처럼 자연스럽고 흡입력 있게 작성해야 합니다.\n\n**글의 요구사항:**\n\n1.  **내용의 깊이와 풍부함:**\n    * 대화에서 논의된 핵심 아이디어, 주장, 근거, 예시, 반론, 다양한 관점 등을 빠짐없이 포함하고, 이를 유기적으로 연결하여 심층적으로 내용을 전개해주세요.\n    * 단순한 정보 요약을 넘어, 주제에 대한 통찰력과 분석적인 시각을 담아내고, 필요한 경우 창의적인 해석이나 제안을 포함해주세요.\n    * 독자에게 새로운 지식이나 관점을 제공하고, 더 깊이 생각해볼 거리를 던져줄 수 있도록 내용을 풍부하게 구성해주세요.\n\n2.  **논리적 구조와 명확성:**\n    * 매력적인 제목 (선택 사항, 생성 가능하다면 제안)\n    * 독자의 흥미를 유발하고 글 전체의 방향을 제시하는 흡인력 있는 서론.\n    * 각각 명확한 소주제를 다루는 여러 개의 본론 단락. 각 단락은 중심 내용(주장/설명)과 이를 뒷받침하는 구체적인 근거, 상세한 설명, 적절한 예시 등으로 설득력 있게 구성되어야 합니다.\n    * 글 전체의 내용을 요약하고, 주제에 대한 최종적인 메시지나 전망을 제시하는 인상적인 결론.\n    * 문단 간, 문장 간 연결이 자연스럽고 논리적인 흐름이 매끄러워야 합니다.\n\n3.  **문체 및 표현:**\n    * 전문적이면서도 독자가 이해하기 쉬운 명료한 언어를 사용해주세요.\n    * 문장은 간결하면서도 힘 있고, 표현은 다채롭고 세련되게 사용해주세요.\n    * AI 특유의 반복적이거나 기계적인 어투를 피하고, 인간적인 감성과 지성이 느껴지는 문체를 구사해주세요.\n\n4.  **분량:**\n    * 주제를 충분히 다루고 독자에게 만족감을 줄 수 있는 적절하고 충분한 분량으로 작성해주세요. (예: 최소 1500자 이상 또는 논의된 내용의 깊이에 따라 그 이상)\n\n5.  **형식:**\n    * 가독성을 높이기 위해 적절한 경우 Markdown 형식을 자유롭게 활용해주세요 (예: 제목, 부제목, 목록, 강조, 인용, 코드 블록 등).\n\n대화 내용을 충실히 반영하되, 단순히 내용을 나열하는 것을 넘어, 하나의 완성도 높은 글로 재창조한다는 생각으로 작성해주시기 바랍니다. 사용자와의 상호작용을 통해 발전된 아이디어가 최종 결과물에 잘 녹아들도록 해주세요.`;
+            }
+            function generateRefineDraftPrompt(currentDraft, userRequest) {
+                 return `다음은 현재 작성된 글 초안입니다.\n\n\`\`\`markdown\n${currentDraft}\n\`\`\`\n\n사용자로부터 다음과 같은 수정 요청을 받았습니다.\n\n**수정 요청:** ${userRequest}\n\n위 요청 사항을 현재 초안에 충실히 반영하여, 개선된 전체 글 초안을 Markdown 형식으로 다시 작성해주세요. AI가 작성했다는 느낌이 들지 않도록 자연스럽고 완성도 높은 글로 만들어주세요. 수정 요청이 특정 부분에 대한 것이라면 해당 부분을 중심으로 개선하되, 글 전체의 흐름과 일관성을 유지해야 합니다. 만약 요청이 모호하다면, 가장 합리적인 방향으로 해석하여 최선을 다해 수정해주세요.`;
+            }
+            app.Api = { callGeminiApi, generateInitialQuestionPrompt, generateFollowUpQuestionPrompt, generateDraftPrompt, generateRefineDraftPrompt, GEMINI_API_MODEL_NAME, AI_PERSONAS };
+        })(window.SocratesApp);
+
+
+        // === ui.js (수정됨) ===
+        (function(app) {
+            'use strict';
+            const State = app.State; const Utils = app.Utils; let DOM = null;
+            let lastFocusedScreenBeforeSettings = 'topic-screen';
+
+            function initDOMElements() {
+                if (DOM) return DOM;
+                DOM = {
+                    appContainer: document.getElementById('app-container'),
+                    header: document.querySelector('header'),
+                    headerTitle: document.getElementById('header-title'),
+                    menuButton: document.getElementById('menu-button'),
+                    settingsButton: document.getElementById('settings-button'),
+
+                    topicScreen: document.getElementById('topic-screen'),
+                    topicForm: document.getElementById('topic-form'),
+                    topicInput: document.getElementById('topic-input'),
+                    viewSessionsButton: document.getElementById('view-sessions-button'),
+
+                    sessionListScreen: document.getElementById('session-list-screen'),
+                    sessionListContainer: document.getElementById('session-list-container'),
+                    createNewSessionFromListButton: document.getElementById('create-new-session-from-list-button'),
+
+                    chatScreen: document.getElementById('chat-screen'),
+                    chatAreaContainer: document.getElementById('chat-area-container'), // 스크롤 컨테이너
+                    chatArea: document.getElementById('chat-area'),
+                    aiThinkingIndicator: document.getElementById('ai-thinking-indicator'),
+                    chatForm: document.getElementById('chat-form'),
+                    userAnswerInput: document.getElementById('user-answer'),
+                    submitAnswerButton: document.getElementById('submit-answer-button'),
+                    generateDraftButton: document.getElementById('generate-draft-button'),
+                    aiPersonaSelectContainer:document.getElementById('ai-persona-select-container'),
+                    aiPersonaSelect: document.getElementById('ai-persona-select'),
+
+                    resultScreen: document.getElementById('result-screen'),
+                    draftOutputContainer: document.getElementById('draft-output-container'),
+                    draftOutput: document.getElementById('draft-output'),
+                    draftRefinementContainer: document.getElementById('draft-refinement-container'),
+                    draftRefinementForm: document.getElementById('draft-refinement-form'),
+                    draftRefinementInput: document.getElementById('draft-refinement-input'),
+                    submitRefinementButton: document.getElementById('submit-refinement-button'),
+                    copyDraftButton: document.getElementById('copy-draft-button'),
+                    saveMdButton: document.getElementById('save-md-button'),
+                    saveHtmlButton: document.getElementById('save-html-button'),
+                    saveTxtButton: document.getElementById('save-txt-button'),
+                    backToChatButton: document.getElementById('back-to-chat-button'),
+
+                    settingsScreen: document.getElementById('settings-screen'),
+                    settingsForm: document.getElementById('settings-form'),
+                    apiKeyInput: document.getElementById('api-key-input'),
+                    backFromSettingsButton: document.getElementById('back-from-settings-button'),
+
+                    fabNewChat: document.getElementById('fab-new-chat'),
+
+                    errorBar: document.getElementById('error-bar'),
+                    errorMessage: document.getElementById('error-message'),
+                    retryButton: document.getElementById('retry-button'),
+                    closeErrorButton: document.getElementById('close-error-button')
+                };
+                return DOM;
+            }
+            function getDOMElements() { return DOM || initDOMElements(); }
+
+            function updateHeaderTitle() {
+                const d = getDOMElements();
+                if (d.headerTitle) {
+                    d.headerTitle.textContent = State.getState().headerTitle || 'Socrates';
+                }
+            }
+
+            function showScreen(screenId, title) {
+                const d = getDOMElements(); if (!d || !d.topicScreen) return;
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+                const activeScreenElement = document.getElementById(screenId);
+
+                if (activeScreenElement) {
+                    activeScreenElement.classList.add('active-screen');
+                    if (screenId !== 'settings-screen') lastFocusedScreenBeforeSettings = screenId;
+                    if (d.fabNewChat) d.fabNewChat.style.display = (screenId === 'topic-screen') ? 'none' : 'flex';
+                } else {
+                    d.topicScreen.classList.add('active-screen');
+                    lastFocusedScreenBeforeSettings = 'topic-screen';
+                    if (d.fabNewChat) d.fabNewChat.style.display = 'none';
+                }
+                State.setCurrentScreen(screenId, title);
+                updateHeaderTitle(); clearError();
+
+                if (screenId === 'topic-screen' && d.topicInput) d.topicInput.focus();
+                if (screenId === 'chat-screen' && d.userAnswerInput) {
+                     d.userAnswerInput.focus();
+                     // Ensure chat is scrolled to bottom when switching to chat screen
+                     if(d.chatAreaContainer) d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
+                }
+                if (screenId === 'settings-screen' && d.apiKeyInput) d.apiKeyInput.value = State.getState().apiKey || '';
+                if (screenId === 'session-list-screen') renderSessionList();
+            }
+            function goBackToLastFocusedScreen() { showScreen(lastFocusedScreenBeforeSettings, State.getState().sessionsList.find(s => s.id === State.getState().currentSessionId)?.name || '목록'); }
+
+
+            function renderChatMessage(message, isNew = true) {
+                const d = getDOMElements();
+                if (!d || !d.chatArea) return;
+                if (!message || !message.role || !Array.isArray(message.parts) || message.parts.length === 0 || typeof message.parts[0].text !== 'string' || typeof message.id === 'undefined') return;
+
+                const wrapperDiv = document.createElement('div');
+                wrapperDiv.classList.add('chat-message-wrapper', message.role === 'model' ? 'ai' : 'user');
+                wrapperDiv.id = `message-wrapper-${message.id}`;
+
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.classList.add('chat-message-bubble');
+                bubbleDiv.id = `message-${message.id}`;
+                
+                const messageContentDiv = document.createElement('div');
+                messageContentDiv.classList.add('message-content');
+                
+                const actionsContainer = document.createElement('div');
+                actionsContainer.classList.add('message-actions');
+
+                const textContent = message.parts[0].text;
+
+                if (message.role === 'model') { // AI 메시지
+                    const rawHtml = Utils.markdownToHtml(textContent);
+                    messageContentDiv.innerHTML = Utils.sanitizeHtml(rawHtml);
+
+                    const regenerateButton = document.createElement('button');
+                    regenerateButton.classList.add('icon-button', 'regenerate-button');
+                    regenerateButton.setAttribute('aria-label', '응답 재생성');
+                    regenerateButton.innerHTML = ICONS.arrowPath || '🔄';
+                    regenerateButton.dataset.messageId = message.id;
+                    actionsContainer.appendChild(regenerateButton);
+
+                    const deleteAiButton = document.createElement('button');
+                    deleteAiButton.classList.add('icon-button', 'delete-ai-message-button');
+                    deleteAiButton.setAttribute('aria-label', '이 AI 응답 삭제');
+                    deleteAiButton.innerHTML = ICONS.trash || '🗑️';
+                    deleteAiButton.dataset.messageId = message.id;
+                    actionsContainer.appendChild(deleteAiButton);
+                } else { // 사용자 메시지
+                    const escTxt = Utils.escapeHtml(textContent);
+                    messageContentDiv.innerHTML = `<p>${escTxt.replace(/\n/g, '<br>')}</p>`;
+
+                    const editButton = document.createElement('button');
+                    editButton.classList.add('icon-button', 'edit-user-message-button');
+                    editButton.setAttribute('aria-label', '메시지 수정');
+                    editButton.innerHTML = ICONS.pencilSquare || '✏️';
+                    editButton.dataset.messageId = message.id;
+                    actionsContainer.appendChild(editButton);
+                }
+                
+                bubbleDiv.appendChild(messageContentDiv);
+                wrapperDiv.appendChild(bubbleDiv);
+                wrapperDiv.appendChild(actionsContainer);
+
+                // --- MODIFIED: Message appending logic ---
+                // DOM 구조상으로는 메시지가 순서대로 (아래로) 쌓이지만,
+                // #chat-area-container 의 flex-direction: column-reverse 때문에
+                // 시각적으로는 새 메시지가 맨 아래에 나타나고, 스크롤도 대부분 자동으로 맨 아래를 유지합니다.
+                d.chatArea.appendChild(wrapperDiv);
+                // --- END MODIFICATION ---
+
+
+                if (isNew) {
+                    if (d.userAnswerInput) {
+                        d.userAnswerInput.value = '';
+                        app.UI.adjustTextareaHeight(d.userAnswerInput);
+                        d.userAnswerInput.focus();
+                    }
+                    // Ensure chat area scrolls to the bottom for new messages
+                    // This is often handled by column-reverse, but explicit call can be more reliable.
+                    // For chatAreaContainer with column-reverse, its scrollHeight is the total height,
+                    // and scrollTop = chatAreaContainer.scrollHeight should scroll to the "top" which is visually the bottom.
+                    // However, simpler is to target chatArea which is normal flow inside reversed container.
+                    if (d.chatAreaContainer) {
+                        d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
+                    }
+                }
+            }
+
+            function clearChatArea() { const d = getDOMElements(); if (d && d.chatArea) d.chatArea.innerHTML = ''; }
+
+            function displayLoading(isLoading) {
+                const d = getDOMElements(); if (!d) return;
+                if (d.aiThinkingIndicator) d.aiThinkingIndicator.style.display = isLoading ? 'flex' : 'none';
+                const buttonsToDisable = [
+                    d.submitAnswerButton, d.generateDraftButton, d.submitRefinementButton,
+                    d.topicForm?.querySelector('button'), d.fabNewChat, d.menuButton, d.settingsButton,
+                    d.viewSessionsButton, d.createNewSessionFromListButton
+                ];
+                buttonsToDisable.forEach(btn => { if (btn) btn.disabled = isLoading; });
+                if (d.aiPersonaSelect) d.aiPersonaSelect.disabled = isLoading;
+                if (d.sessionListContainer) d.sessionListContainer.querySelectorAll('button').forEach(btn => btn.disabled = isLoading);
+                if (d.chatArea) d.chatArea.querySelectorAll('.icon-button, .button').forEach(btn => btn.disabled = isLoading);
+            }
+
+            function displayError(message, showRetry = false) {
+                const d = getDOMElements(); if (!d || !d.errorMessage || !d.errorBar || !d.retryButton) return;
+                d.errorMessage.textContent = message;
+                d.errorBar.classList.add('visible');
+                d.retryButton.style.display = showRetry ? 'inline-flex' : 'none';
+            }
+            function clearError() {
+                const d = getDOMElements(); if (!d || !d.errorBar) return;
+                d.errorBar.classList.remove('visible');
+            }
+
+            function renderDraft(markdownDraft) {
+                const d=getDOMElements(); if(!d || !d.draftOutput) return;
+                if(!markdownDraft){d.draftOutput.innerHTML='<p class="text-caption text-center"><em>초안 내용이 없습니다.</em></p>'; return;}
+                const rawHtml=Utils.markdownToHtml(markdownDraft);
+                d.draftOutput.innerHTML=Utils.sanitizeHtml(rawHtml);
+            }
+            function updateApiKeyInput() { const d=getDOMElements(); if(d && d.apiKeyInput) d.apiKeyInput.value=State.getState().apiKey||''; }
+
+            function _adjustTextareaHeightInternal(textarea) {
+                 if (!textarea) return;
+                 textarea.style.height = 'auto';
+                 const scrollHeight = textarea.scrollHeight;
+                 const computedStyle = window.getComputedStyle(textarea);
+                 let maxHeight = parseInt(computedStyle.maxHeight, 10);
+                 if (isNaN(maxHeight) || maxHeight <=0 ) maxHeight = 150; 
+
+                 if (scrollHeight > maxHeight) {
+                     textarea.style.height = `${maxHeight}px`;
+                     textarea.style.overflowY = 'auto';
+                 } else {
+                     textarea.style.height = `${scrollHeight}px`;
+                     textarea.style.overflowY = 'hidden';
+                 }
+            }
+
+            function populateAiPersonaSelect() {
+                const d = getDOMElements(); if (!d || !d.aiPersonaSelect) return;
+                const personas = State.getState().availableAiPersonas;
+                d.aiPersonaSelect.innerHTML = '';
+                for (const key in personas) {
+                    if (Object.hasOwnProperty.call(personas, key)) {
+                        const option = document.createElement('option');
+                        option.value = key;
+                        option.textContent = personas[key].name;
+                        d.aiPersonaSelect.appendChild(option);
+                    }
+                }
+            }
+            function updateAiPersonaSelect(personaKey) {
+                 const d = getDOMElements(); if (!d || !d.aiPersonaSelect) return;
+                 const currentState = State.getState(); const personas = currentState.availableAiPersonas;
+                 if (personas && personas[personaKey]) d.aiPersonaSelect.value = personaKey;
+                 else if (personas) d.aiPersonaSelect.value = Object.keys(personas)[0] || '';
+            }
+
+            function renderSessionList() {
+                const d = getDOMElements(); if (!d || !d.sessionListContainer) return;
+                const sessions = State.getSessionsList();
+                d.sessionListContainer.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    d.sessionListContainer.innerHTML = '<p class="text-caption text-center mb-4">저장된 글이 없습니다. 새 글쓰기를 시작해보세요!</p>';
+                    return;
+                }
+                sessions.forEach(session => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.classList.add('session-item');
+                    itemDiv.dataset.sessionId = session.id;
+                    itemDiv.innerHTML = `
+                        <div class="session-info">
+                            <div class="session-name">${Utils.escapeHtml(session.name)}</div>
+                            <div class="session-topic">주제: ${Utils.escapeHtml(session.topic)}</div>
+                            <div class="session-date">최종 수정: ${new Date(session.modifiedAt).toLocaleDateString('ko-KR')}</div>
+                        </div>
+                        <div class="session-actions">
+                            <button class="icon-button rename-session-button" data-action="rename" aria-label="이름 변경">
+                                ${ICONS.pencilSquare || '✏️'}
+                            </button>
+                            <button class="icon-button delete-session-button" data-action="delete" aria-label="삭제">
+                                ${ICONS.trash || '🗑️'}
+                            </button>
+                        </div>
+                    `;
+                    itemDiv.querySelector('.session-info').addEventListener('click', () => app.AppInstance.handleLoadSession(session.id));
+                    itemDiv.querySelector('.rename-session-button').addEventListener('click', (e) => { e.stopPropagation(); app.AppInstance.handleRenameSession(session.id, session.name); });
+                    itemDiv.querySelector('.delete-session-button').addEventListener('click', (e) => { e.stopPropagation(); app.AppInstance.handleDeleteSession(session.id, session.name); });
+                    d.sessionListContainer.appendChild(itemDiv);
+                });
+            }
+
+            function showEditUI(messageBubbleDiv, messageId, currentText) {
+                const originalContentContainer = messageBubbleDiv.querySelector('.message-content');
+                
+                const messageWrapper = messageBubbleDiv.closest('.chat-message-wrapper');
+                const externalActionsContainer = messageWrapper ? messageWrapper.querySelector('.message-actions') : null;
+                
+                if(originalContentContainer) originalContentContainer.style.display = 'none';
+                if(externalActionsContainer) externalActionsContainer.style.display = 'none';
+
+                const editWrapper = document.createElement('div');
+                editWrapper.classList.add('edit-wrapper');
+                const textOnly = currentText;
+
+                editWrapper.innerHTML = `
+                    <textarea class="edit-area" rows="3"></textarea>
+                    <div class="edit-controls">
+                        <button class="button button-sm button-secondary cancel-edit">취소</button>
+                        <button class="button button-sm button-primary save-edit">저장</button>
+                    </div>
+                `;
+                messageBubbleDiv.appendChild(editWrapper); // Edit UI is inside bubble
+
+                const textarea = editWrapper.querySelector('textarea.edit-area');
+                textarea.value = textOnly;
+                _adjustTextareaHeightInternal(textarea);
+                textarea.focus();
+                textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+
+                textarea.addEventListener('input', () => _adjustTextareaHeightInternal(textarea));
+
+                editWrapper.querySelector('.save-edit').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    app.AppInstance.handleSaveEditedMessage(messageId, textarea.value, messageBubbleDiv, editWrapper, originalContentContainer);
+                });
+                editWrapper.querySelector('.cancel-edit').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editWrapper.remove();
+                    if(originalContentContainer) originalContentContainer.style.display = '';
+                    if(externalActionsContainer) externalActionsContainer.style.display = '';
+                });
+            }
+
+            app.UI = {
+                initDOMElements, getDOMElements, showScreen, goBackToLastFocusedScreen,
+                renderChatMessage, clearChatArea,
+                displayLoading, displayError, clearError, renderDraft, updateApiKeyInput,
+                adjustTextareaHeight: _adjustTextareaHeightInternal,
+                populateAiPersonaSelect, updateAiPersonaSelect,
+                renderSessionList, updateHeaderTitle, showEditUI
+            };
+        })(window.SocratesApp);
+
+        // === app.js (수정됨) ===
+        (function(app) {
+            'use strict';
+            const State = app.State; const UI = app.UI; const Api = app.Api; const Utils = app.Utils;
+            let DOM = null;
+            app.AppInstance = {}; // Public API for app instance
+
+            async function handleTopicSubmit(event) {
+                if (event) event.preventDefault();
+                if (!DOM || !DOM.topicInput) return;
+                const topic = DOM.topicInput.value.trim();
+                if (!topic) { UI.displayError("주제를 입력해주세요.", false); return; }
+                if (!State.getState().apiKey) { UI.displayError("API 키를 설정해주세요.", false); UI.showScreen('settings-screen', '설정'); return; }
+
+                const newSessionId = State.createNewSession(topic);
+                UI.clearChatArea();
+                UI.updateAiPersonaSelect(State.getState().currentAiPersona);
+                const shortTopicTitle = topic.substring(0,12) + (topic.length > 12 ? "..." : "");
+                UI.showScreen('chat-screen', shortTopicTitle);
+
+                const userTopicMessageText = `주제: ${topic}`;
+                State.addMessageToChatHistory('user', userTopicMessageText);
+                const firstUserMessage = State.getFullChatHistoryWithTimestamps()[0];
+                if (firstUserMessage) UI.renderChatMessage(firstUserMessage);
+
+                UI.displayLoading(true); State.setLoading(true);
+                State.setLastActionForRetry({ type: 'getInitialQuestion', payload: { topic: topic, sessionId: newSessionId } });
+                try {
+                    const prompt = Api.generateInitialQuestionPrompt(topic);
+                    const aiQ = await Api.callGeminiApi([{ role: 'user', parts: [{ text: prompt }] }]);
+                    if (typeof aiQ === 'string' && aiQ.trim().length > 0) {
+                        State.addMessageToChatHistory('model', aiQ);
+                        const firstAiMessage = State.getFullChatHistoryWithTimestamps().slice(-1)[0];
+                        if (firstAiMessage) UI.renderChatMessage(firstAiMessage);
+                        if (DOM.userAnswerInput) { DOM.userAnswerInput.value = ''; UI.adjustTextareaHeight(DOM.userAnswerInput); DOM.userAnswerInput.focus(); }
+                    } else { throw new Error("AI로부터 첫 질문을 생성하지 못했습니다."); }
+                    State.clearLastActionForRetry();
+                } catch (e) { UI.displayError(e.message || "글쓰기 시작 중 오류 발생", true); }
+                finally { UI.displayLoading(false); State.setLoading(false); }
+            }
+
+            async function fetchAndProcessAiResponse(currentHistoryForApi, promptGenerator) {
+                const promptText = promptGenerator();
+                const messagesForApi = [...currentHistoryForApi, { role: 'user', parts: [{ text: promptText }] }];
+                const aiResponseText = await Api.callGeminiApi(messagesForApi);
+
+                if (typeof aiResponseText === 'string' && aiResponseText.trim().length > 0) {
+                    State.addMessageToChatHistory('model', aiResponseText);
+                    const newAiMessage = State.getFullChatHistoryWithTimestamps().slice(-1)[0];
+                    if (newAiMessage) UI.renderChatMessage(newAiMessage);
+                } else { throw new Error("AI로부터 유효한 후속 응답을 받지 못했습니다."); }
+                State.clearLastActionForRetry();
+            }
+
+            async function handleChatSubmit(event) {
+                if (event) event.preventDefault();
+                if (!DOM || !DOM.userAnswerInput) return;
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                const uAns = DOM.userAnswerInput.value.trim();
+                if (!uAns) { UI.displayError("답변을 입력해주세요.", false); return; }
+
+                State.addMessageToChatHistory('user', uAns);
+                const userMessage = State.getFullChatHistoryWithTimestamps().slice(-1)[0];
+                if (userMessage) UI.renderChatMessage(userMessage);
+
+                UI.displayLoading(true); State.setLoading(true);
+                State.setLastActionForRetry({ type: 'getFollowUp', payload: { sessionId: State.getState().currentSessionId } });
+                try {
+                    const histApi = State.getChatHistory();
+                    await fetchAndProcessAiResponse(histApi, Api.generateFollowUpQuestionPrompt);
+                } catch (e) { UI.displayError(e.message || "답변 처리 중 오류 발생", true); }
+                finally { UI.displayLoading(false); State.setLoading(false); }
+            }
+
+            async function handleRegenerateAiResponse(aiMessageIdToRegenerate) {
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                UI.displayLoading(true); State.setLoading(true); UI.clearError();
+                const fullChatHistory = State.getFullChatHistoryWithTimestamps();
+                const originalAiMessageIndex = fullChatHistory.findIndex(m => m.id === aiMessageIdToRegenerate && m.role === 'model');
+                if (originalAiMessageIndex === -1) { UI.displayError("재생성할 AI 메시지를 찾지 못했습니다."); UI.displayLoading(false); State.setLoading(false); return; }
+
+                const historyForApiCall = fullChatHistory.slice(0, originalAiMessageIndex).map(msg => ({ role: msg.role, parts: msg.parts.map(part => ({ text: part.text })) }));
+                State.setLastActionForRetry({ type: 'regenerateAiResponse', payload: { originalAiMessageId: aiMessageIdToRegenerate, sessionId: State.getState().currentSessionId } });
+                try {
+                    let promptText; let messagesForApiInput;
+                    const currentTopic = State.getState().currentTopic;
+                    if (originalAiMessageIndex === 1 && fullChatHistory[0].role === 'user' && fullChatHistory[0].parts[0].text.startsWith("주제:")) {
+                         promptText = Api.generateInitialQuestionPrompt(currentTopic); messagesForApiInput = [{ role: 'user', parts: [{ text: promptText }] }];
+                    } else if (historyForApiCall.length > 0 && historyForApiCall[historyForApiCall.length-1].role === 'user') {
+                        promptText = Api.generateFollowUpQuestionPrompt(); messagesForApiInput = [...historyForApiCall, { role: 'user', parts: [{ text: promptText }] }];
+                    } else { throw new Error("이전 대화 상태가 응답 재생성을 지원하지 않습니다."); }
+
+                    const newAiResponseText = await Api.callGeminiApi(messagesForApiInput);
+                    if (typeof newAiResponseText === 'string' && newAiResponseText.trim().length > 0) {
+                        const newAiMessageObject = { id: Date.now(), role: 'model', parts: [{ text: newAiResponseText }], timestamp: Date.now() };
+                        State.replaceMessageAtIndex(originalAiMessageIndex, newAiMessageObject);
+                        UI.clearChatArea(); 
+                        State.getFullChatHistoryWithTimestamps().forEach(msg => UI.renderChatMessage(msg, false));
+                    } else { throw new Error("AI로부터 유효한 재 생성 응답을 받지 못했습니다."); }
+                    State.clearLastActionForRetry();
+                } catch (e) { UI.displayError(e.message || "응답 재생성 중 오류 발생", true); }
+                finally { UI.displayLoading(false); State.setLoading(false); }
+            }
+
+            async function handleGenerateDraft() {
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                if(State.getChatHistory().length<2){UI.displayError("초안 생성에 대화가 더 필요합니다.");return;}
+                UI.displayLoading(true);State.setLoading(true);
+                const currTop=State.getState().currentTopic;
+                State.setLastActionForRetry({type:'generateDraft',payload:{topic:currTop, sessionId: State.getState().currentSessionId}});
+                try {
+                    const hist=State.getChatHistory();
+                    const dPrompt=Api.generateDraftPrompt(currTop);
+                    const msgApi=[...hist,{role:'user',parts:[{text:dPrompt}]}];
+                    const mdDraft=await Api.callGeminiApi(msgApi,{temperature:0.75, topP:0.9, topK:40});
+                    if (typeof mdDraft === 'string' && mdDraft.trim().length > 0) {
+                        State.setCurrentDraft(mdDraft); UI.renderDraft(mdDraft);
+                        UI.showScreen('result-screen', '생성된 초안');
+                         if (DOM.draftRefinementInput) { DOM.draftRefinementInput.value = ''; UI.adjustTextareaHeight(DOM.draftRefinementInput); DOM.draftRefinementInput.focus(); }
+                    } else { throw new Error("AI로부터 유효한 초안을 받지 못했습니다."); }
+                    State.clearLastActionForRetry();
+                } catch (e) { UI.displayError(e.message || "초안 생성 중 오류 발생",true); }
+                finally { UI.displayLoading(false);State.setLoading(false); }
+            }
+
+            async function handleDraftRefinementSubmit(event) {
+                if (event) event.preventDefault();
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                const userRequest = DOM.draftRefinementInput.value.trim();
+                if (!userRequest) { UI.displayError("수정 요청 내용을 입력해주세요."); return; }
+                const currentDraft = State.getState().currentDraft;
+                if (!currentDraft || currentDraft.trim().length === 0) { UI.displayError("수정할 초안이 없습니다."); return; }
+                UI.displayLoading(true); State.setLoading(true);
+                State.setLastActionForRetry({ type: 'refineDraft', payload: { userRequest, sessionId: State.getState().currentSessionId } });
+                try {
+                    const promptText = Api.generateRefineDraftPrompt(currentDraft, userRequest);
+                    const refinedDraft = await Api.callGeminiApi([{ role: 'user', parts: [{ text: promptText }] }]);
+                    if (typeof refinedDraft === 'string' && refinedDraft.trim().length > 0) {
+                        State.setCurrentDraft(refinedDraft); UI.renderDraft(refinedDraft);
+                        if (DOM.draftRefinementInput) { DOM.draftRefinementInput.value = ''; UI.adjustTextareaHeight(DOM.draftRefinementInput); DOM.draftRefinementInput.focus(); }
+                    } else { throw new Error("AI로부터 유효한 수정된 초안을 받지 못했습니다."); }
+                    State.clearLastActionForRetry();
+                } catch (e) { UI.displayError(e.message || "초안 수정 중 오류 발생", true); }
+                finally { UI.displayLoading(false); State.setLoading(false); }
+            }
+
+            function handleSettingsSave(event) {
+                if (event) event.preventDefault();
+                const apiKey=DOM.apiKeyInput.value.trim();
+                if(apiKey){State.setApiKey(apiKey);alert("API 키가 저장되었습니다.");UI.goBackToLastFocusedScreen();}
+                else{UI.displayError("API 키를 입력해주세요.");}
+            }
+
+            async function resendForFollowUp() {
+                UI.displayLoading(true);State.setLoading(true);
+                try {
+                    const histApi=State.getChatHistory();
+                    await fetchAndProcessAiResponse(histApi,Api.generateFollowUpQuestionPrompt);
+                } catch (e) { UI.displayError(e.message || "후속 질문 재시도 중 오류 발생",true); }
+                finally { UI.displayLoading(false);State.setLoading(false); }
+            }
+            
+            app.AppInstance.handleSaveEditedMessage = async function(messageId, newText, messageBubbleDiv, editWrapper, originalContentDiv) {
+                const messageWrapper = messageBubbleDiv.closest('.chat-message-wrapper');
+                const externalActionsContainer = messageWrapper ? messageWrapper.querySelector('.message-actions') : null;
+
+                if (!State.getState().currentSessionId) { 
+                    UI.displayError("활성화된 글쓰기 세션이 없습니다."); 
+                    editWrapper.remove();
+                    if(originalContentDiv) originalContentDiv.style.display = '';
+                    if(externalActionsContainer) externalActionsContainer.style.display = '';
+                    return; 
+                }
+                const trimmedText = newText.trim();
+                if (!trimmedText) { 
+                    UI.displayError("메시지 내용은 비워둘 수 없습니다."); 
+                    return; 
+                }
+
+                UI.displayLoading(true); State.setLoading(true);
+                try {
+                    if (State.updateUserMessageText(messageId, trimmedText)) {
+                        if (originalContentDiv) {
+                            originalContentDiv.innerHTML = `<p>${Utils.escapeHtml(trimmedText).replace(/\n/g, '<br>')}</p>`;
+                        }
+                        editWrapper.remove();
+                        if(originalContentDiv) originalContentDiv.style.display = '';
+                        if(externalActionsContainer) externalActionsContainer.style.display = '';
+                    } else { throw new Error("메시지 수정에 실패했습니다."); }
+                } catch (e) { 
+                    UI.displayError(e.message || "메시지 수정 중 오류 발생"); 
+                    editWrapper.remove();
+                    if(originalContentDiv) originalContentDiv.style.display = '';
+                    if(externalActionsContainer) externalActionsContainer.style.display = '';
+                }
+                finally { UI.displayLoading(false); State.setLoading(false); }
+            };
+
+
+            function handleEditUserMessageClick(messageId) {
+                if (State.getState().isLoading) return;
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+
+                const existingEditWrapper = DOM.chatArea.querySelector('.edit-wrapper');
+                if (existingEditWrapper) {
+                    const cancelButton = existingEditWrapper.querySelector('.cancel-edit');
+                    if (cancelButton) cancelButton.click();
+                }
+
+                const messageBubbleDiv = DOM.chatArea.querySelector(`#message-${messageId}`);
+                const messageData = State.getFullChatHistoryWithTimestamps().find(m => m.id === messageId);
+
+                if (messageBubbleDiv && messageData && messageData.role === 'user') {
+                    const currentText = messageData.parts[0].text;
+                    UI.showEditUI(messageBubbleDiv, messageId, currentText);
+                } else { UI.displayError("이 메시지는 수정할 수 없거나 찾을 수 없습니다."); }
+            }
+
+            async function handleDeleteAiMessageClick(messageId) {
+                if (State.getState().isLoading) return;
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                if (confirm("선택한 AI 메시지를 삭제하시겠습니까?")) {
+                    UI.displayLoading(true); State.setLoading(true);
+                    try {
+                        if (State.deleteAiMessage(messageId)) {
+                            UI.clearChatArea();
+                            State.getFullChatHistoryWithTimestamps().forEach(msg => UI.renderChatMessage(msg, false));
+                        } else { throw new Error("AI 메시지 삭제에 실패했습니다."); }
+                    } catch (e) { UI.displayError(e.message || "AI 메시지 삭제 중 오류 발생"); }
+                    finally { UI.displayLoading(false); State.setLoading(false); }
+                }
+            }
+
+            function handleRetry() {
+                const lastAct = State.getState().lastActionForRetry; UI.clearError();
+                if (lastAct) {
+                    if (lastAct.payload && lastAct.payload.sessionId && State.getState().currentSessionId !== lastAct.payload.sessionId) {
+                        if (!State.loadSession(lastAct.payload.sessionId)) { UI.displayError("재시도 실패: 이전 세션을 불러올 수 없습니다."); return; }
+                        UI.clearChatArea();
+                        State.getFullChatHistoryWithTimestamps().forEach(m => UI.renderChatMessage(m, false));
+                        UI.renderDraft(State.getState().currentDraft);
+                        UI.updateAiPersonaSelect(State.getState().currentAiPersona);
+                        UI.updateHeaderTitle();
+                    }
+                    switch(lastAct.type){
+                        case 'getInitialQuestion': if (DOM.topicInput && lastAct.payload && typeof lastAct.payload.topic === 'string') { DOM.topicInput.value = lastAct.payload.topic; handleTopicSubmit(); } else { UI.displayError("첫 질문 재시도 정보가 올바르지 않습니다."); } break;
+                        case 'getFollowUp': resendForFollowUp(); break;
+                        case 'generateDraft': handleGenerateDraft(); break;
+                        case 'regenerateAiResponse': if (lastAct.payload && typeof lastAct.payload.originalAiMessageId === 'number') { handleRegenerateAiResponse(lastAct.payload.originalAiMessageId); } else { UI.displayError("응답 재생성 재시도 정보가 올바르지 않습니다."); } break;
+                        case 'refineDraft': if (DOM.draftRefinementInput && lastAct.payload && typeof lastAct.payload.userRequest === 'string') { DOM.draftRefinementInput.value = lastAct.payload.userRequest; handleDraftRefinementSubmit(); } else { UI.displayError("초안 수정 재시도 정보가 올바르지 않습니다."); } break;
+                        default: UI.displayError("알 수 없는 재시도 작업."); break;
+                    }
+                } else { UI.displayError("재시도할 작업 없음."); }
+            }
+
+            function confirmAndStartNewWriting() {
+                if (State.getState().isLoading) return; 
+
+                const currentSessionId = State.getState().currentSessionId;
+                const chatHistoryLength = State.getState().chatHistory.length;
+
+                function proceedToNewWriting() {
+                    State.resetForNewTopicInput();
+                    UI.clearChatArea(); UI.renderDraft('');
+                    if (DOM.topicInput) DOM.topicInput.value = '';
+                    if (DOM.draftRefinementInput) DOM.draftRefinementInput.value = '';
+                    UI.showScreen('topic-screen', '주제 입력');
+                    if (DOM.topicInput) DOM.topicInput.focus();
+                }
+
+                if (currentSessionId && chatHistoryLength > 0) {
+                    if (confirm("현재 작업 내용을 저장했습니다. 새 글쓰기를 시작하시겠습니까?")) {
+                        proceedToNewWriting();
+                    }
+                } else {
+                    proceedToNewWriting();
+                }
+            }
+
+            app.AppInstance.handleLoadSession = function(sessionId) {
+                UI.displayLoading(true);
+                if (State.loadSession(sessionId)) {
+                    const { currentTopic, currentDraft, currentAiPersona } = State.getState();
+                    const sessionName = State.getState().sessionsList.find(s => s.id === sessionId)?.name || currentTopic.substring(0,12) + (currentTopic.length > 12 ? "..." : "");
+                    UI.updateAiPersonaSelect(currentAiPersona);
+                    if (DOM.topicInput) DOM.topicInput.value = currentTopic;
+                    UI.clearChatArea();
+                    State.getFullChatHistoryWithTimestamps().forEach(m => { UI.renderChatMessage(m, false); });
+                    UI.renderDraft(currentDraft);
+                    UI.showScreen('chat-screen', sessionName);
+                    if (DOM.userAnswerInput) { DOM.userAnswerInput.value = ''; UI.adjustTextareaHeight(DOM.userAnswerInput); DOM.userAnswerInput.focus(); }
+                } else { UI.displayError("선택한 글을 불러오는데 실패했습니다."); UI.showScreen('session-list-screen', '저장된 글 목록'); }
+                UI.displayLoading(false);
+            }
+            app.AppInstance.handleRenameSession = function(sessionId, currentName) {
+                const newName = prompt("새로운 글 제목을 입력하세요:", currentName);
+                if (newName && newName.trim() !== "") {
+                    if (State.renameSession(sessionId, newName.trim())) {
+                        UI.renderSessionList(); 
+                        if(State.getState().currentSessionId === sessionId) {
+                           UI.showScreen(State.getState().currentScreen, newName.trim());
+                        }
+                        alert("글 제목이 변경되었습니다.");
+                    } else { UI.displayError("글 제목 변경에 실패했습니다."); }
+                } else if (newName !== null) { UI.displayError("글 제목은 비워둘 수 없습니다."); }
+            }
+            app.AppInstance.handleDeleteSession = function(sessionId, sessionName) {
+                if (confirm(`'${sessionName}' 글을 정말 삭제하시겠습니까?`)) {
+                    const wasCurrentSession = State.getState().currentSessionId === sessionId;
+                    State.deleteSession(sessionId); UI.renderSessionList();
+                    if (wasCurrentSession) {
+                        UI.showScreen('topic-screen', '주제 입력');
+                    }
+                    alert("선택한 글이 삭제되었습니다.");
+                }
+            }
+
+            function setupEventListeners() {
+                if (!DOM) { console.error("DOM not ready for setupEventListeners"); return; }
+
+                DOM.topicForm?.addEventListener('submit', handleTopicSubmit);
+                DOM.chatForm?.addEventListener('submit', handleChatSubmit);
+                DOM.generateDraftButton?.addEventListener('click', handleGenerateDraft);
+                DOM.draftRefinementForm?.addEventListener('submit', handleDraftRefinementSubmit);
+
+                DOM.menuButton?.addEventListener('click', () => UI.showScreen('session-list-screen', '저장된 글 목록'));
+                DOM.settingsButton?.addEventListener('click', () => UI.showScreen('settings-screen', '설정'));
+                DOM.fabNewChat?.addEventListener('click', confirmAndStartNewWriting);
+
+                DOM.settingsForm?.addEventListener('submit', handleSettingsSave);
+                DOM.backFromSettingsButton?.addEventListener('click', () => UI.goBackToLastFocusedScreen());
+
+                DOM.copyDraftButton?.addEventListener('click', () => {
+                    const draftMd = State.getState().currentDraft;
+                    if (navigator.clipboard && draftMd) {
+                        navigator.clipboard.writeText(draftMd)
+                            .then(() => alert("초안(Markdown)이 클립보드에 복사되었습니다."))
+                            .catch(err => { console.error("클립보드 복사 실패:", err); alert("클립보드 복사에 실패했습니다."); });
+                    } else if (draftMd) { try { const ta = document.createElement('textarea'); ta.value = draftMd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert("초안(Markdown)이 클립보드에 복사되었습니다."); } catch (e) { alert("클립보드 복사 실패"); }} else { alert("복사할 내용이 없습니다."); }
+                });
+                DOM.saveMdButton?.addEventListener('click', () => { const d=State.getState().currentDraft;const t=State.getState().currentTopic; if(d && t) Utils.saveToFile(d, `${t.substring(0,20)}.md`, 'text/markdown;charset=utf-8'); else alert("저장할 내용이 없습니다."); });
+                DOM.saveHtmlButton?.addEventListener('click', () => { const d=State.getState().currentDraft;const t=State.getState().currentTopic; if(d && t) Utils.saveToFile(Utils.sanitizeHtml(Utils.markdownToHtml(d)), `${t.substring(0,20)}.html`, 'text/html;charset=utf-8'); else alert("저장할 내용이 없습니다.");});
+                DOM.saveTxtButton?.addEventListener('click', () => { const d=State.getState().currentDraft;const t=State.getState().currentTopic; if(d && t) Utils.saveToFile(d, `${t.substring(0,20)}.txt`, 'text/plain;charset=utf-8'); else alert("저장할 내용이 없습니다."); });
+
+
+                DOM.backToChatButton?.addEventListener('click', () => UI.showScreen('chat-screen', State.getState().sessionsList.find(s => s.id === State.getState().currentSessionId)?.name || '대화'));
+                
+                DOM.closeErrorButton?.addEventListener('click', UI.clearError);
+                DOM.retryButton?.addEventListener('click', handleRetry);
+
+                DOM.viewSessionsButton?.addEventListener('click', () => UI.showScreen('session-list-screen', '저장된 글 목록'));
+                DOM.createNewSessionFromListButton?.addEventListener('click', confirmAndStartNewWriting);
+
+                DOM.chatArea?.addEventListener('click', function(event) {
+                    if (State.getState().isLoading) {
+                        const isActionBtn = event.target.closest('.icon-button');
+                        if (isActionBtn) { event.stopPropagation(); return; }
+                    }
+                    const regenerateButton = event.target.closest('.regenerate-button');
+                    const editUserButton = event.target.closest('.edit-user-message-button');
+                    const deleteAiButton = event.target.closest('.delete-ai-message-button');
+
+                    if (regenerateButton && regenerateButton.dataset.messageId && !regenerateButton.disabled) {
+                        handleRegenerateAiResponse(parseInt(regenerateButton.dataset.messageId, 10));
+                    } else if (editUserButton && editUserButton.dataset.messageId && !editUserButton.disabled) {
+                        handleEditUserMessageClick(parseInt(editUserButton.dataset.messageId, 10));
+                    } else if (deleteAiButton && deleteAiButton.dataset.messageId && !deleteAiButton.disabled) {
+                        handleDeleteAiMessageClick(parseInt(deleteAiButton.dataset.messageId, 10));
+                    }
+                });
+
+                DOM.aiPersonaSelect?.addEventListener('change', function() {
+                    if (this.disabled) return;
+                    State.setCurrentAiPersona(this.value); UI.updateAiPersonaSelect(this.value); UI.clearError();
+                });
+
+                [DOM.topicInput, DOM.userAnswerInput, DOM.draftRefinementInput].forEach(textarea => {
+                    if (textarea) {
+                        textarea.addEventListener('input', () => UI.adjustTextareaHeight(textarea));
+                        UI.adjustTextareaHeight(textarea);
+                    }
+                });
+
+                window.addEventListener('beforeunload', () => { if (State.getState().currentSessionId) State._saveCurrentSessionData(); });
+            }
+
+            function initializeApp() {
+                if (Api.AI_PERSONAS && State.setAiPersonas) {
+                   State.setAiPersonas(Api.AI_PERSONAS);
+                }
+
+                UI.initDOMElements();
+                DOM = UI.getDOMElements();
+                State.initSessions();
+                setupEventListeners();
+
+                const storedApiKey = localStorage.getItem('geminiApiKey_v2');
+                if (storedApiKey) { State.setApiKey(storedApiKey); UI.updateApiKeyInput(); }
+
+                UI.populateAiPersonaSelect();
+                
+                const sessions = State.getSessionsList();
+                if (sessions.length > 0 && State.loadSession(sessions[0].id)) {
+                    UI.updateAiPersonaSelect(State.getState().currentAiPersona);
+                    UI.clearChatArea();
+                    State.getFullChatHistoryWithTimestamps().forEach(msg => UI.renderChatMessage(msg, false));
+                    UI.renderDraft(State.getState().currentDraft);
+                     const currentSessionName = State.getState().sessionsList.find(s => s.id === State.getState().currentSessionId)?.name || '대화';
+                    UI.showScreen('chat-screen', currentSessionName);
+                } else {
+                     State.resetForNewTopicInput();
+                     UI.updateAiPersonaSelect(State.getState().currentAiPersona);
+                     UI.showScreen('topic-screen', State.getState().headerTitle);
+                }
+                UI.updateHeaderTitle();
+
+                setTimeout(() => {
+                    const currentState = State.getState();
+                    if (!currentState.apiKey && currentState.currentScreen === 'topic-screen' && !currentState.currentSessionId) {
+                        UI.displayError("API 키가 필요합니다. 설정(⚙️)에서 입력해주세요.", false);
+                    }
+                }, 500);
+            }
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        })(window.SocratesApp);
+
+    </script>
+</body>
+</html>
