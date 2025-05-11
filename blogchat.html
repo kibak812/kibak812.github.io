@@ -14,8 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha512-TU4FJi5o+mg25IFJWLLChVpVSUBhYkEnYMZFqC2mCvSm3NqZSPCjc8_K3fAXgqdjzY+zV0GgTeI0hAbVnrMuA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha512-ce0fmuEgWrpnIXWKQrSgJ5FsBsr/hnOsxdWvk5lu1GThckasLwc+TAFERLNIwWnWqBoWV4GPDJiz2PSPntinVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
             /* === Clarity Flow - Color Palette (Dark Mode) === */
@@ -202,8 +201,8 @@
         /* === Topic Screen === */
         #topic-screen { justify-content: center; align-items: center; text-align: center; padding: var(--space-6) var(--space-4); }
         #topic-screen .text-large-title { margin-bottom: var(--space-2); color: var(--text-primary);}
-        #topic-screen .text-body { max-width: 320px; margin-bottom: var(--space-6); color: var(--text-tertiary); }
-        #topic-form { width: 100%; max-width: 380px; }
+        #topic-screen .text-body { max-width: 100% margin-bottom: var(--space-6); color: var(--text-tertiary); }
+        #topic-form { width: 100%; max-width: 100%; }
         #topic-input {
             min-height: 120px; font-size: var(--fs-body-1); text-align: left; /* Left align for easier typing */
             padding: var(--space-3); background-color: var(--bg-surface); line-height: var(--lh-relaxed);
@@ -610,10 +609,16 @@
         };
 
         // === Font Loading ===
-        (function() { /* FOUT 방지 JS (기존과 동일) */ })();
+        (function() { 
+            if (sessionStorage.fontsLoaded) { document.documentElement.classList.remove('fonts-loading'); return; }
+            document.documentElement.classList.add('fonts-loading');
+            Promise.all([document.fonts.load("1rem Inter"), document.fonts.load("bold 1rem Inter")])
+                .then(() => { document.documentElement.classList.remove('fonts-loading'); sessionStorage.fontsLoaded = true; })
+                .catch(() => { document.documentElement.classList.remove('fonts-loading'); });
+        })();
 
-        // === state.js ===
-        (function(app) { /* 기존과 동일 */
+        // === state.js (수정됨) ===
+        (function(app) {
             'use strict';
             const API_KEY_STORAGE_KEY = 'geminiApiKey_v2';
             const SESSION_LIST_KEY = 'socratesSessionsList_v2';
@@ -703,14 +708,32 @@
             function getChatHistory() { return state.chatHistory.map(msg => ({ role: msg.role, parts: msg.parts.map(part => ({ text: part.text })) }));}
             function getFullChatHistoryWithTimestamps() { return [...state.chatHistory]; }
             function resetForNewTopicInput() { state.currentTopic = ''; state.currentSessionId = null; clearLastActionForRetry(); state.headerTitle = '주제 입력'; }
+            
             function updateUserMessageText(messageId, newText) {
                 const msgIdx = state.chatHistory.findIndex(msg => msg.id === messageId && msg.role === 'user');
-                if (msgIdx > -1) { state.chatHistory[msgIdx].parts = [{text: newText}]; state.chatHistory[msgIdx].timestamp = Date.now(); _saveCurrentSessionData(); return true; } return false;
+                if (msgIdx > -1) { 
+                    state.chatHistory[msgIdx].parts = [{text: newText}]; 
+                    state.chatHistory[msgIdx].timestamp = Date.now(); 
+                    _saveCurrentSessionData(); 
+                    return msgIdx; // Return index for convenience
+                } 
+                return -1;
             }
+
             function deleteAiMessage(messageId) {
                 const initialLength = state.chatHistory.length;
                 state.chatHistory = state.chatHistory.filter(msg => !(msg.id === messageId && msg.role === 'model'));
                 if (state.chatHistory.length < initialLength) { _saveCurrentSessionData(); return true; } return false;
+            }
+
+            function deleteUserMessageAndFollowUps(messageId) {
+                const msgIdx = state.chatHistory.findIndex(msg => msg.id === messageId && msg.role === 'user');
+                if (msgIdx > -1) {
+                    state.chatHistory.splice(msgIdx); // Remove the user message and all subsequent messages
+                    _saveCurrentSessionData();
+                    return true;
+                }
+                return false;
             }
 
             app.State = {
@@ -718,12 +741,12 @@
                 setAiPersonas, initSessions, createNewSession, loadSession, deleteSession, renameSession, getSessionsList,
                 setCurrentTopic, addMessageToChatHistory, getChatHistory, getFullChatHistoryWithTimestamps,
                 replaceMessageAtIndex, setCurrentDraft, setCurrentAiPersona, _saveCurrentSessionData,
-                updateUserMessageText, deleteAiMessage
+                updateUserMessageText, deleteAiMessage, deleteUserMessageAndFollowUps
             };
         })(window.SocratesApp);
 
         // === utils.js ===
-        (function(app) { /* 기존과 동일 */
+        (function(app) {
             'use strict';
             function saveToFile(content, filename, contentType) { const a = document.createElement('a'); const blob = new Blob([content],{type:contentType}); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href); }
             function markdownToHtml(mdText) { if(typeof marked==='undefined'){ return `<p>${String(mdText || "").replace(/\n/g,"<br>")}</p>`;} marked.setOptions({breaks:true,gfm:true,pedantic:false,smartLists:true,smartypants:false}); return marked.parse(String(mdText || "")); }
@@ -732,18 +755,18 @@
             app.Utils = { saveToFile, markdownToHtml, sanitizeHtml, escapeHtml };
         })(window.SocratesApp);
 
-        // === api.js ===
-        (function(app) { /* 기존과 동일 */
+        // === api.js (수정됨 - generateFollowUpQuestionPrompt) ===
+        (function(app) {
             'use strict';
             const State = app.State;
-            const GEMINI_API_MODEL_NAME = "gemini-1.5-pro-latest";
+            const GEMINI_API_MODEL_NAME = "gemini-2.5-flash-preview-04-17";
             const GEMINI_API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_API_MODEL_NAME}:generateContent`;
 
             const AI_PERSONAS = {
                  'deepDive': { name: '🧐 깊이 우선 탐색', instruction: '사용자의 답변에 대해 논리적 깊이를 더하고 핵심 근거를 파고드는 질문과 피드백을 제공합니다.' },
                  'ideaExpansion': { name: '💡 아이디어 확장', instruction: '사용자의 답변에서 새로운 가능성이나 연결점을 발견하고, 아이디어를 다양한 방향으로 확장할 수 있는 창의적인 질문과 제안을 우선적으로 제시합니다.' },
                  'criticalChallenge': { name: '🎯 핵심 논점 공격', instruction: '사용자의 주장에서 잠재적인 논리적 오류, 숨겨진 가정, 약점, 반론 가능성을 집중적으로 찾아 정중하지만 날카로운 질문으로 검토를 유도합니다.' },
-                 'concretization': { name: '✍️ 구체화 요청', instruction: '사용자의 답변이 추상적일 경우, 구체적인 예시, 실행 방안, 명확한 정의를 요청하여 아이디어를 명확하게 발전시키도록 돕습니다.' },
+                 'concretization': { name: '✍️ 구체화 요청', instruction: '사용자의 답변이 추상적일 경우, 구체적인 예시, 실행 방안, 명확한 정의를 요청하여 아이디어를 명확하게 발전시키도록 돕니다.' },
             };
 
             async function callGeminiApi(contents, generationConfig = {}) {
@@ -774,12 +797,14 @@
             function generateInitialQuestionPrompt(topic) {
                 return `당신은 사용자의 논리적 사고와 아이디어 발전을 돕는 지적인 AI 조력자입니다. 사용자는 "${topic}"라는 주제에 대해 깊이 있는 글을 쓰고 싶어합니다. 이 주제에 대한 사용자의 초기 생각을 명확히 파악하고, 앞으로 진행될 비판적 논의의 시작점이 될 수 있는 핵심적인 첫 질문을 한국어로 해주세요. 질문은 개방적이면서도 사용자가 자신의 주장을 펼치고 그 근거를 고민하게 만드는 방식으로 구성해주세요. 단순히 감상이나 느낌을 묻기보다는, 주제의 핵심 개념, 가정, 또는 주요 쟁점에 대한 사용자의 입장을 묻는 것이 좋습니다. 소크라테스식 문답법의 정신을 따르되, 사용자가 부담을 느끼지 않고 자신의 생각을 솔직하게 드러낼 수 있도록 정중하고 명료한 어조를 사용해주세요. 질문만 간결하게 제시해주세요.`;
             }
+            
             function generateFollowUpQuestionPrompt() {
                 const { currentAiPersona, availableAiPersonas } = State.getState();
-                const basePrompt = `당신은 사용자의 아이디어를 발전시키고 논리적 사고를 돕는 지적인 토론 파트너이자 조력자입니다. 이전 대화 내용을 바탕으로 다음의 상호작용 원칙에 따라 응답해주세요. 당신의 목표는 사용자와 건설적인 대화를 통해 생각을 더 깊고, 넓고, 명료하게 만드는 것입니다.\n\n**상호작용 원칙:**\n\n1.  **적극적 경청 및 이해 확인:** 먼저 사용자의 답변을 주의 깊게 경청하고, 핵심 내용을 명확히 이해했음을 간략히 언급합니다. 필요한 경우, "말씀하신 내용은 A로 이해했는데, 맞을까요?"와 같이 확인 질문을 할 수 있습니다.\n\n2.  **균형 있는 피드백 (지지와 비판적 검토의 조화):**\n    * **긍정적 측면 및 잠재력 언급 (해당 시):** 사용자의 아이디어나 주장에 합리적인 부분이 있거나 발전 가능성이 보이면, "좋은 지적입니다." 또는 "흥미로운 관점이네요."와 같이 간략히 언급하여 사용자의 참여를 독려합니다. \n    * **논리적 검토 및 심층 탐구:** 이후, 해당 주장의 논리적 근거, 숨겨진 가정, 다양한 관점에서의 영향, 잠재적 보완점 등을 탐구하는 질문으로 자연스럽게 이어갑니다.\n        * "그렇게 생각하시는 구체적인 배경이나 근거가 있다면 좀 더 자세히 들어볼 수 있을까요?"\n        * "만약 A라는 다른 상황에 이 아이디어를 적용한다면 어떤 결과가 예상될까요?"\n        * "B라는 관점에서 보면 이 주장에 어떤 새로운 해석이나 고려사항이 추가될 수 있을까요?"\n\n3.  **다양한 관점 및 대안적 아이디어 제시 (탐구적 제안):** 사용자가 미처 고려하지 못했을 법한 다른 시각, 관련된 개념, 또는 대안적인 설명을 '함께 탐구해보자'는 제안의 형태로 부드럽게 제시합니다.\n    * "말씀하신 부분에 더해, 혹시 C라는 요소도 함께 고려해 보면 어떨까요? 어떤 영향을 미칠 수 있을지 궁금하네요."\n    * "이 현상을 설명하는 또 다른 가능성으로 D와 같은 관점도 있는데, 이 부분에 대해서는 어떻게 생각하시나요?"\n\n4.  **정중한 논리적 점검:** 사용자의 주장이나 근거에서 논리적 비약이나 모호한 부분이 느껴질 경우, 이를 명확히 하도록 정중하게 요청합니다.\n    * "앞서 언급하신 E와 현재 말씀하신 F 사이의 연결고리가 조금 더 명확해지면 좋을 것 같습니다. 부연 설명을 부탁드려도 될까요?"\n    * "G라는 전제가 이 주장에 중요한 역할을 하는 것 같은데, 이 전제가 항상 유효하다고 볼 수 있을지 함께 고민해 보면 어떨까요?"\n\n5.  **구체화 요구 (필요시):** 추상적인 주장에 대해서는 구체적인 예시나 설명을 요청하여 생각을 명료하게 발전시키도록 돕습니다.\n    * "말씀하신 H라는 개념을 실제 사례에 적용한다면 어떤 모습일지 그려주실 수 있나요?"\n\n**대화의 흐름:**\n* 사용자가 편안하게 자신의 생각을 펼칠 수 있도록 지지하고 격려하는 분위기를 조성합니다.\n* 질문 일변도가 아닌, 때로는 사용자의 말을 정리하거나, 관련된 정보를 짧게 제공하는 등 다양한 방식으로 상호작용합니다.\n* AI 자신의 의견을 강요하기보다는, 사용자의 사고 과정을 촉진하는 데 집중합니다.\n* 모든 응답은 한국어로 하며, 명확하고 간결하게, 그리고 정중하고 건설적인 어조를 사용합니다.\n* **답변의 가독성을 높이기 위해 필요한 경우, 간단한 마크다운(예: **강조**, *기울임*, 목록)을 사용할 수 있습니다. 하지만 과도한 서식은 피해주세요.**\n\n`;
+                const basePrompt = `당신은 사용자의 아이디어를 발전시키고 논리적 사고를 돕는 지적인 토론 파트너이자 조력자입니다. 이전 대화 내용을 바탕으로 다음의 상호작용 원칙에 따라 응답해주세요. 당신의 목표는 사용자와 건설적인 대화를 통해 생각을 더 깊고, 넓고, 명료하게 만드는 것입니다.\n\n**상호작용 원칙:**\n\n1.  **적극적 경청 및 이해 확인:** 먼저 사용자의 답변을 주의 깊게 경청하고, 핵심 내용을 명확히 이해했음을 간략히 언급합니다. 필요한 경우, "말씀하신 내용은 A로 이해했는데, 맞을까요?"와 같이 확인 질문을 할 수 있습니다.\n\n2.  **다음 질문 준비 (하나의 핵심 질문에 집중):**\n    * **간단한 피드백 (해당 시):** 사용자의 아이디어나 주장에 합리적인 부분이 있거나 발전 가능성이 보이면, "좋은 지적입니다." 또는 "흥미로운 관점이네요."와 같이 간략히 언급하여 사용자의 참여를 독려합니다. \n    * **단일 핵심 질문 선정:** 그런 다음, 사용자의 생각을 가장 효과적으로 발전시킬 수 있는 **단 하나의 핵심 질문**을 제시합니다. 이 질문은 다음 중 하나의 목적을 가질 수 있습니다 (상황에 맞춰 가장 적절한 것을 선택):\n        * **심층 탐구:** (예: "그렇게 생각하시는 구체적인 배경이나 근거가 있다면 좀 더 자세히 들어볼 수 있을까요?" 또는 "말씀하신 내용의 핵심적인 전제는 무엇이라고 생각하시나요?")\n        * **관점 확장:** (예: "만약 A라는 다른 상황에 이 아이디어를 적용한다면 어떤 결과가 예상될까요?" 또는 "B라는 관점에서 보면 이 주장에 어떤 새로운 해석이나 고려사항이 추가될 수 있을까요?" 또는 "혹시 C라는 요소도 함께 고려해 보면 어떨까요? 어떤 영향을 미칠 수 있을지 궁금하네요.")\n        * **논리 점검:** (예: "앞서 언급하신 E와 현재 말씀하신 F 사이의 연결고리가 조금 더 명확해지면 좋을 것 같습니다. 부연 설명을 부탁드려도 될까요?" 또는 "G라는 전제가 이 주장에 중요한 역할을 하는 것 같은데, 이 전제가 항상 유효하다고 볼 수 있을지 함께 고민해 보면 어떨까요?")\n        * **구체화:** (예: "말씀하신 H라는 개념을 실제 사례에 적용한다면 어떤 모습일지 그려주실 수 있나요?")\n    * **중요:** 여러 질문을 동시에 하거나, 질문과 제안을 섞어서 하지 마세요. 매번 하나의 명확한 질문을 통해 대화를 이끌어갑니다.\n\n**대화의 흐름:**\n* 사용자가 편안하게 자신의 생각을 펼칠 수 있도록 지지하고 격려하는 분위기를 조성합니다.\n* **매 응답은 사용자의 이전 답변에 대한 간략한 피드백 후, 단 하나의 질문으로 마무리합니다.** AI 자신의 의견을 강요하기보다는, 사용자의 사고 과정을 촉진하는 데 집중합니다.\n* 모든 응답은 한국어로 하며, 명확하고 간결하게, 그리고 정중하고 건설적인 어조를 사용합니다.\n* **답변의 가독성을 높이기 위해 필요한 경우, 간단한 마크다운(예: **강조**, *기울임*, 목록)을 사용할 수 있습니다. 하지만 과도한 서식은 피해주세요.**\n\n`;
                 const personaInstruction = availableAiPersonas[currentAiPersona]?.instruction;
-                return basePrompt + (personaInstruction ? `\n\n**[AI 스타일 지시]**: ${personaInstruction} 이 지침에 따라 다음 응답의 내용과 톤을 조정해주세요.` : '');
+                return basePrompt + (personaInstruction ? `\n\n**[AI 스타일 지시]**: ${personaInstruction} 이 지침에 따라 다음 응답의 내용과 톤을 조정해주세요. **특히, 한 번에 하나의 질문만 하도록 유의해주세요.**` : '');
             }
+
             function generateDraftPrompt(topic) {
                  return `지금까지 "${topic}"라는 주제에 대해 사용자와 나눈 심도 있는 대화 내용을 총정리하고, 이를 바탕으로 매우 높은 수준의 블로그 포스트 초고를 작성해주세요. 이 글은 해당 주제에 관심 있는 일반 대중을 대상으로 하며, AI가 작성했다는 느낌이 전혀 들지 않도록 인간 작가가 쓴 것처럼 자연스럽고 흡입력 있게 작성해야 합니다.\n\n**글의 요구사항:**\n\n1.  **내용의 깊이와 풍부함:**\n    * 대화에서 논의된 핵심 아이디어, 주장, 근거, 예시, 반론, 다양한 관점 등을 빠짐없이 포함하고, 이를 유기적으로 연결하여 심층적으로 내용을 전개해주세요.\n    * 단순한 정보 요약을 넘어, 주제에 대한 통찰력과 분석적인 시각을 담아내고, 필요한 경우 창의적인 해석이나 제안을 포함해주세요.\n    * 독자에게 새로운 지식이나 관점을 제공하고, 더 깊이 생각해볼 거리를 던져줄 수 있도록 내용을 풍부하게 구성해주세요.\n\n2.  **논리적 구조와 명확성:**\n    * 매력적인 제목 (선택 사항, 생성 가능하다면 제안)\n    * 독자의 흥미를 유발하고 글 전체의 방향을 제시하는 흡인력 있는 서론.\n    * 각각 명확한 소주제를 다루는 여러 개의 본론 단락. 각 단락은 중심 내용(주장/설명)과 이를 뒷받침하는 구체적인 근거, 상세한 설명, 적절한 예시 등으로 설득력 있게 구성되어야 합니다.\n    * 글 전체의 내용을 요약하고, 주제에 대한 최종적인 메시지나 전망을 제시하는 인상적인 결론.\n    * 문단 간, 문장 간 연결이 자연스럽고 논리적인 흐름이 매끄러워야 합니다.\n\n3.  **문체 및 표현:**\n    * 전문적이면서도 독자가 이해하기 쉬운 명료한 언어를 사용해주세요.\n    * 문장은 간결하면서도 힘 있고, 표현은 다채롭고 세련되게 사용해주세요.\n    * AI 특유의 반복적이거나 기계적인 어투를 피하고, 인간적인 감성과 지성이 느껴지는 문체를 구사해주세요.\n\n4.  **분량:**\n    * 주제를 충분히 다루고 독자에게 만족감을 줄 수 있는 적절하고 충분한 분량으로 작성해주세요. (예: 최소 1500자 이상 또는 논의된 내용의 깊이에 따라 그 이상)\n\n5.  **형식:**\n    * 가독성을 높이기 위해 적절한 경우 Markdown 형식을 자유롭게 활용해주세요 (예: 제목, 부제목, 목록, 강조, 인용, 코드 블록 등).\n\n대화 내용을 충실히 반영하되, 단순히 내용을 나열하는 것을 넘어, 하나의 완성도 높은 글로 재창조한다는 생각으로 작성해주시기 바랍니다. 사용자와의 상호작용을 통해 발전된 아이디어가 최종 결과물에 잘 녹아들도록 해주세요.`;
             }
@@ -790,7 +815,7 @@
         })(window.SocratesApp);
 
 
-        // === ui.js (수정됨) ===
+        // === ui.js (수정됨 - 사용자 메시지 삭제 버튼 추가) ===
         (function(app) {
             'use strict';
             const State = app.State; const Utils = app.Utils; let DOM = null;
@@ -815,7 +840,7 @@
                     createNewSessionFromListButton: document.getElementById('create-new-session-from-list-button'),
 
                     chatScreen: document.getElementById('chat-screen'),
-                    chatAreaContainer: document.getElementById('chat-area-container'), // 스크롤 컨테이너
+                    chatAreaContainer: document.getElementById('chat-area-container'), 
                     chatArea: document.getElementById('chat-area'),
                     aiThinkingIndicator: document.getElementById('ai-thinking-indicator'),
                     chatForm: document.getElementById('chat-form'),
@@ -881,7 +906,6 @@
                 if (screenId === 'topic-screen' && d.topicInput) d.topicInput.focus();
                 if (screenId === 'chat-screen' && d.userAnswerInput) {
                      d.userAnswerInput.focus();
-                     // Ensure chat is scrolled to bottom when switching to chat screen
                      if(d.chatAreaContainer) d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
                 }
                 if (screenId === 'settings-screen' && d.apiKeyInput) d.apiKeyInput.value = State.getState().apiKey || '';
@@ -938,19 +962,21 @@
                     editButton.innerHTML = ICONS.pencilSquare || '✏️';
                     editButton.dataset.messageId = message.id;
                     actionsContainer.appendChild(editButton);
+
+                    // 사용자 메시지 삭제 버튼 추가
+                    const deleteUserButton = document.createElement('button');
+                    deleteUserButton.classList.add('icon-button', 'delete-user-message-button');
+                    deleteUserButton.setAttribute('aria-label', '이 메시지 및 이후 대화 삭제');
+                    deleteUserButton.innerHTML = ICONS.trash || '🗑️';
+                    deleteUserButton.dataset.messageId = message.id;
+                    actionsContainer.appendChild(deleteUserButton);
                 }
                 
                 bubbleDiv.appendChild(messageContentDiv);
                 wrapperDiv.appendChild(bubbleDiv);
                 wrapperDiv.appendChild(actionsContainer);
 
-                // --- MODIFIED: Message appending logic ---
-                // DOM 구조상으로는 메시지가 순서대로 (아래로) 쌓이지만,
-                // #chat-area-container 의 flex-direction: column-reverse 때문에
-                // 시각적으로는 새 메시지가 맨 아래에 나타나고, 스크롤도 대부분 자동으로 맨 아래를 유지합니다.
                 d.chatArea.appendChild(wrapperDiv);
-                // --- END MODIFICATION ---
-
 
                 if (isNew) {
                     if (d.userAnswerInput) {
@@ -958,11 +984,6 @@
                         app.UI.adjustTextareaHeight(d.userAnswerInput);
                         d.userAnswerInput.focus();
                     }
-                    // Ensure chat area scrolls to the bottom for new messages
-                    // This is often handled by column-reverse, but explicit call can be more reliable.
-                    // For chatAreaContainer with column-reverse, its scrollHeight is the total height,
-                    // and scrollTop = chatAreaContainer.scrollHeight should scroll to the "top" which is visually the bottom.
-                    // However, simpler is to target chatArea which is normal flow inside reversed container.
                     if (d.chatAreaContainer) {
                         d.chatAreaContainer.scrollTop = d.chatAreaContainer.scrollHeight;
                     }
@@ -1128,7 +1149,7 @@
             };
         })(window.SocratesApp);
 
-        // === app.js (수정됨) ===
+        // === app.js (수정됨 - 사용자 메시지 수정/삭제 로직 변경) ===
         (function(app) {
             'use strict';
             const State = app.State; const UI = app.UI; const Api = app.Api; const Utils = app.Utils;
@@ -1207,18 +1228,29 @@
                 UI.displayLoading(true); State.setLoading(true); UI.clearError();
                 const fullChatHistory = State.getFullChatHistoryWithTimestamps();
                 const originalAiMessageIndex = fullChatHistory.findIndex(m => m.id === aiMessageIdToRegenerate && m.role === 'model');
-                if (originalAiMessageIndex === -1) { UI.displayError("재생성할 AI 메시지를 찾지 못했습니다."); UI.displayLoading(false); State.setLoading(false); return; }
 
-                const historyForApiCall = fullChatHistory.slice(0, originalAiMessageIndex).map(msg => ({ role: msg.role, parts: msg.parts.map(part => ({ text: part.text })) }));
+                if (originalAiMessageIndex === -1) { 
+                    UI.displayError("재생성할 AI 메시지를 찾지 못했습니다."); 
+                    UI.displayLoading(false); State.setLoading(false); return; 
+                }
+
+                const historyUpToAiMessage = fullChatHistory.slice(0, originalAiMessageIndex);
+                const historyForApiCall = historyUpToAiMessage.map(msg => ({ role: msg.role, parts: msg.parts.map(part => ({ text: part.text })) }));
+
                 State.setLastActionForRetry({ type: 'regenerateAiResponse', payload: { originalAiMessageId: aiMessageIdToRegenerate, sessionId: State.getState().currentSessionId } });
                 try {
                     let promptText; let messagesForApiInput;
                     const currentTopic = State.getState().currentTopic;
-                    if (originalAiMessageIndex === 1 && fullChatHistory[0].role === 'user' && fullChatHistory[0].parts[0].text.startsWith("주제:")) {
-                         promptText = Api.generateInitialQuestionPrompt(currentTopic); messagesForApiInput = [{ role: 'user', parts: [{ text: promptText }] }];
+
+                    if (originalAiMessageIndex === 1 && historyForApiCall.length === 1 && historyForApiCall[0].role === 'user' && historyForApiCall[0].parts[0].text.startsWith("주제:")) {
+                         promptText = Api.generateInitialQuestionPrompt(currentTopic); 
+                         messagesForApiInput = [{ role: 'user', parts: [{ text: promptText }] }];
                     } else if (historyForApiCall.length > 0 && historyForApiCall[historyForApiCall.length-1].role === 'user') {
-                        promptText = Api.generateFollowUpQuestionPrompt(); messagesForApiInput = [...historyForApiCall, { role: 'user', parts: [{ text: promptText }] }];
-                    } else { throw new Error("이전 대화 상태가 응답 재생성을 지원하지 않습니다."); }
+                        promptText = Api.generateFollowUpQuestionPrompt(); 
+                        messagesForApiInput = [...historyForApiCall, { role: 'user', parts: [{ text: promptText }] }];
+                    } else { 
+                        throw new Error("이전 대화 상태가 응답 재생성을 지원하지 않습니다. (예: AI 메시지 연속)"); 
+                    }
 
                     const newAiResponseText = await Api.callGeminiApi(messagesForApiInput);
                     if (typeof newAiResponseText === 'string' && newAiResponseText.trim().length > 0) {
@@ -1296,7 +1328,7 @@
 
                 if (!State.getState().currentSessionId) { 
                     UI.displayError("활성화된 글쓰기 세션이 없습니다."); 
-                    editWrapper.remove();
+                    if (editWrapper) editWrapper.remove();
                     if(originalContentDiv) originalContentDiv.style.display = '';
                     if(externalActionsContainer) externalActionsContainer.style.display = '';
                     return; 
@@ -1309,17 +1341,26 @@
 
                 UI.displayLoading(true); State.setLoading(true);
                 try {
-                    if (State.updateUserMessageText(messageId, trimmedText)) {
+                    const updatedMessageIndex = State.updateUserMessageText(messageId, trimmedText);
+                    if (updatedMessageIndex > -1) {
                         if (originalContentDiv) {
                             originalContentDiv.innerHTML = `<p>${Utils.escapeHtml(trimmedText).replace(/\n/g, '<br>')}</p>`;
                         }
-                        editWrapper.remove();
+                        if (editWrapper) editWrapper.remove();
                         if(originalContentDiv) originalContentDiv.style.display = '';
                         if(externalActionsContainer) externalActionsContainer.style.display = '';
+
+                        const fullChatHistory = State.getFullChatHistoryWithTimestamps();
+                        if (updatedMessageIndex + 1 < fullChatHistory.length) {
+                            const nextMessage = fullChatHistory[updatedMessageIndex + 1];
+                            if (nextMessage && nextMessage.role === 'model') {
+                                await handleRegenerateAiResponse(nextMessage.id);
+                            }
+                        }
                     } else { throw new Error("메시지 수정에 실패했습니다."); }
                 } catch (e) { 
                     UI.displayError(e.message || "메시지 수정 중 오류 발생"); 
-                    editWrapper.remove();
+                    if (editWrapper) editWrapper.remove();
                     if(originalContentDiv) originalContentDiv.style.display = '';
                     if(externalActionsContainer) externalActionsContainer.style.display = '';
                 }
@@ -1357,6 +1398,26 @@
                             State.getFullChatHistoryWithTimestamps().forEach(msg => UI.renderChatMessage(msg, false));
                         } else { throw new Error("AI 메시지 삭제에 실패했습니다."); }
                     } catch (e) { UI.displayError(e.message || "AI 메시지 삭제 중 오류 발생"); }
+                    finally { UI.displayLoading(false); State.setLoading(false); }
+                }
+            }
+
+            async function handleDeleteUserMessageClick(messageId) {
+                if (State.getState().isLoading) return;
+                if (!State.getState().currentSessionId) { UI.displayError("활성화된 글쓰기 세션이 없습니다."); return; }
+                
+                const messageToDelete = State.getFullChatHistoryWithTimestamps().find(m => m.id === messageId);
+                if (!messageToDelete) { UI.displayError("삭제할 메시지를 찾지 못했습니다."); return; }
+
+                if (confirm(`이 사용자 메시지 및 이후의 모든 대화를 삭제하시겠습니까?\n\n"${messageToDelete.parts[0].text.substring(0, 50)}..."`)) {
+                    UI.displayLoading(true); State.setLoading(true);
+                    try {
+                        if (State.deleteUserMessageAndFollowUps(messageId)) {
+                            UI.clearChatArea();
+                            State.getFullChatHistoryWithTimestamps().forEach(msg => UI.renderChatMessage(msg, false));
+                            if (DOM.userAnswerInput) DOM.userAnswerInput.focus(); 
+                        } else { throw new Error("사용자 메시지 및 후속 대화 삭제에 실패했습니다."); }
+                    } catch (e) { UI.displayError(e.message || "사용자 메시지 삭제 중 오류 발생"); }
                     finally { UI.displayLoading(false); State.setLoading(false); }
                 }
             }
@@ -1489,6 +1550,7 @@
                     const regenerateButton = event.target.closest('.regenerate-button');
                     const editUserButton = event.target.closest('.edit-user-message-button');
                     const deleteAiButton = event.target.closest('.delete-ai-message-button');
+                    const deleteUserButton = event.target.closest('.delete-user-message-button'); 
 
                     if (regenerateButton && regenerateButton.dataset.messageId && !regenerateButton.disabled) {
                         handleRegenerateAiResponse(parseInt(regenerateButton.dataset.messageId, 10));
@@ -1496,6 +1558,8 @@
                         handleEditUserMessageClick(parseInt(editUserButton.dataset.messageId, 10));
                     } else if (deleteAiButton && deleteAiButton.dataset.messageId && !deleteAiButton.disabled) {
                         handleDeleteAiMessageClick(parseInt(deleteAiButton.dataset.messageId, 10));
+                    } else if (deleteUserButton && deleteUserButton.dataset.messageId && !deleteUserButton.disabled) { 
+                        handleDeleteUserMessageClick(parseInt(deleteUserButton.dataset.messageId, 10));
                     }
                 });
 
